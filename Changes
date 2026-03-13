@@ -1,0 +1,61 @@
+Revision history for WWW-Zitadel
+
+{{$NEXT}}
+    - OIDC feature expansion:
+      - Added generic token endpoint helper `token(grant_type => ...)`
+      - Added convenience helpers:
+        - `client_credentials_token`
+        - `refresh_token`
+        - `exchange_authorization_code`
+      - Refactored JWT decoding behind `_decode_jwt` for deterministic testing
+    - Added live/integration tests:
+      - `t/90-live-zitadel.t` for opt-in real ZITADEL smoke tests
+      - `t/91-k8s-pod.t` for opt-in Kubernetes pod startup + discovery reachability
+    - Added practical integration examples:
+      - `examples/verify_token.pl`
+      - `examples/bootstrap_project.pl`
+    - Added Kubernetes deployment assets:
+      - `script/deploy-k8s-zitadel.sh`
+      - `k8s/zitadel/postgres.yaml`
+      - `k8s/zitadel/postgres-values.yaml` (legacy bitnami reference)
+      - `k8s/zitadel/zitadel-values.yaml`
+      - `k8s/zitadel/gateway-cert.yaml`
+      - `k8s/zitadel/httproute.yaml`
+    - Made ZITADEL image configurable in deploy script:
+      - `ZITADEL_IMAGE_REPOSITORY`
+      - `ZITADEL_IMAGE_TAG`
+    - Documented PostgreSQL 18 setup migration incompatibility in ZITADEL v4.10.1
+      and required upstream fix (`#11484`, released in `v4.11.0`)
+    - Updated Kubernetes deploy script default ZITADEL image tag to `v4.12.2`
+      so the default path is PostgreSQL 18 compatible
+    - Extended unit coverage for new OIDC token helper behavior
+    - Expanded OIDC and Management test coverage for additional error paths and
+      method/path mapping (`t/02-oidc.t`, `t/03-management.t`)
+    - Fixed `WWW::Zitadel` POD synopsis to reflect actual method names
+      (`list_users`, `create_human_user`)
+    - Added project-local Claude skill for ZITADEL workflows:
+      `.claude/skills/zitadel-general/SKILL.md`
+    - Added usage-focused project-local skill:
+      `.claude/skills/www-zitadel-perl/SKILL.md`
+
+0.001     2026-03-08
+    - Initial release of WWW::Zitadel distribution
+    - Added unified entrypoint module:
+      - WWW::Zitadel (lazy OIDC and Management clients)
+    - Added OIDC client module:
+      - WWW::Zitadel::OIDC
+      - Discovery parsing
+      - JWKS retrieval with cache support
+      - JWT verification via Crypt::JWT
+      - UserInfo and token introspection helpers
+    - Added Management API client module:
+      - WWW::Zitadel::Management
+      - User, project, OIDC app, role, and grant operations
+      - Consistent bearer-token request handling
+    - Added comprehensive README.md documentation:
+      - Installation and quickstart examples
+      - OIDC and Management usage
+      - Error handling and testing notes
+    - Added extended offline test coverage:
+      - OIDC endpoint behavior and JWKS refresh retry flow
+      - Management request formation, payload mapping, and API error handling
