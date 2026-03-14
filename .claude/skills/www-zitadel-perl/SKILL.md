@@ -12,7 +12,10 @@ Use this skill when the task is "how do I use `WWW::Zitadel` in Perl?".
 
 - `WWW::Zitadel`: unified entrypoint (`issuer`, optional `token`)
 - `WWW::Zitadel::OIDC`: discovery, JWKS, token verification, userinfo, introspection, token endpoint helpers
-- `WWW::Zitadel::Management`: Management API v1 (users/projects/apps/roles/grants)
+- `WWW::Zitadel::Management`: Management API v1 (users/projects/apps/roles/grants/IDPs)
+- `WWW::Zitadel::Error`: exception base; subclasses `::Validation`, `::Network`, `::API`
+
+Async equivalent: `Net::Async::Zitadel` in `p5-net-async-zitadel/` — same API surface with `_f` suffixes returning Futures.
 
 ## Quickstart (unified entrypoint)
 
@@ -67,8 +70,51 @@ Common flow:
 
 ## Error handling
 
-This distribution currently throws via `die` on validation/API errors.
-Wrap in `eval`/`Try::Tiny` when needed.
+Errors throw typed exception objects (subclasses of `WWW::Zitadel::Error`).
+They stringify to their message, so plain `eval`/`$@` string matching still works.
+
+```perl
+eval { $mgmt->get_user($id) };
+if (my $err = $@) {
+    if (ref $err && $err->isa('WWW::Zitadel::Error::API')) {
+        warn "HTTP: ", $err->http_status, "\n";  # e.g. "404 Not Found"
+        warn "Msg:  ", $err->api_message,  "\n";  # from Zitadel JSON body
+    }
+    die $err;  # re-throw
+}
+```
+
+Exception classes:
+- `WWW::Zitadel::Error::Validation` — bad args before any HTTP call
+- `WWW::Zitadel::Error::Network`   — HTTP-level failure (non-2xx for OIDC endpoints)
+- `WWW::Zitadel::Error::API`       — non-2xx from Management API (has `http_status`, `api_message`)
+
+## Common gotchas for AI
+
+**PAT creation**: ZITADEL UI → Users (top-right avatar) → Personal Access Tokens → Add.
+Service accounts: Users → Service Users → create → Keys tab → add key.
+
+**API base path**: Always appends `/management/v1` — don't double-include it in paths.
+
+**Token format**: `Authorization: Bearer <PAT>` — always Bearer, never Basic.
+
+**IDP configuration**: After `create_oidc_idp`, call `activate_idp($id)` — IDPs start inactive.
+The `scopes` default is `["openid","profile","email"]`.
+
+**User types**: `create_human_user` → human login users; `create_service_user` → machine/JWT users.
+Service users can't log in interactively — use machine keys (`add_machine_key`).
+
+**Metadata values**: Zitadel stores metadata base64-encoded. The client handles encoding on write
+automatically. On read, `$meta->{metadata}{value}` comes back base64-encoded — decode it yourself
+with `MIME::Base64::decode_base64($v)` if needed.
+
+**LWP + self-signed TLS**: Add `ssl_opts => { verify_hostname => 0 }` to `LWP::UserAgent->new`
+for dev instances with self-signed certs (not for production).
+
+**CORS**: For browser-based OIDC, add allowed origins in ZITADEL under the app's settings.
+
+**PostgreSQL 18 + self-hosted**: If init fails with "partitioned tables cannot be unlogged",
+use ZITADEL v4.11.0+ which includes the PG18 compatibility fix.
 
 ## Test commands
 

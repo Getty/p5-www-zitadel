@@ -466,6 +466,68 @@ sub list_user_grants {
     });
 }
 
+# --- Identity Providers (IDPs) ---
+
+sub list_idps {
+    my ($self, %args) = @_;
+    $self->_post('/idps/_search', {
+        query => {
+            offset => $args{offset} // 0,
+            limit  => $args{limit}  // 100,
+        },
+        $args{queries} ? (queries => $args{queries}) : (),
+    });
+}
+
+sub get_idp {
+    my ($self, $idp_id) = @_;
+    $idp_id or _require('idp_id required');
+    $self->_get("/idps/$idp_id");
+}
+
+sub create_oidc_idp {
+    my ($self, %args) = @_;
+    $self->_post('/idps/oidc', {
+        name         => $args{name}          // _require('name required'),
+        clientId     => $args{client_id}     // _require('client_id required'),
+        clientSecret => $args{client_secret} // _require('client_secret required'),
+        issuer       => $args{issuer}        // _require('issuer required'),
+        scopes       => $args{scopes}        // ['openid', 'profile', 'email'],
+        $args{display_name_mapping} ? (displayNameMapping => $args{display_name_mapping}) : (),
+        $args{username_mapping}     ? (usernameMapping    => $args{username_mapping})     : (),
+        $args{auto_register}        ? (autoRegister       => $args{auto_register})        : (),
+    });
+}
+
+sub update_idp {
+    my ($self, $idp_id, %args) = @_;
+    $idp_id or _require('idp_id required');
+    $self->_put("/idps/$idp_id", {
+        name => $args{name} // _require('name required'),
+        $args{display_name_mapping} ? (displayNameMapping => $args{display_name_mapping}) : (),
+        $args{username_mapping}     ? (usernameMapping    => $args{username_mapping})     : (),
+        $args{auto_register}        ? (autoRegister       => $args{auto_register})        : (),
+    });
+}
+
+sub delete_idp {
+    my ($self, $idp_id) = @_;
+    $idp_id or _require('idp_id required');
+    $self->_delete("/idps/$idp_id");
+}
+
+sub activate_idp {
+    my ($self, $idp_id) = @_;
+    $idp_id or _require('idp_id required');
+    $self->_post("/idps/$idp_id/_activate", {});
+}
+
+sub deactivate_idp {
+    my ($self, $idp_id) = @_;
+    $idp_id or _require('idp_id required');
+    $self->_post("/idps/$idp_id/_deactivate", {});
+}
+
 1;
 
 __END__
@@ -539,6 +601,16 @@ __END__
         project_id => $project_id,
         role_keys  => ['admin'],
     );
+
+    # Identity Providers
+    my $idp = $mgmt->create_oidc_idp(
+        name          => 'Google',
+        client_id     => $client_id,
+        client_secret => $client_secret,
+        issuer        => 'https://accounts.google.com',
+    );
+    $mgmt->activate_idp($idp->{idp}{id});
+    my $idps = $mgmt->list_idps;
 
 =head1 DESCRIPTION
 
@@ -693,6 +765,25 @@ C<role_key>.
 
 Assign roles to users. C<create_user_grant> requires C<user_id>,
 C<project_id>, and C<role_keys> (arrayref).
+
+=method list_idps
+
+=method get_idp
+
+=method create_oidc_idp
+
+=method update_idp
+
+=method delete_idp
+
+=method activate_idp
+
+=method deactivate_idp
+
+Identity provider management. C<create_oidc_idp> requires C<name>,
+C<client_id>, C<client_secret>, and C<issuer>. Optional: C<scopes>
+(default C<["openid","profile","email"]>), C<display_name_mapping>,
+C<username_mapping>, C<auto_register>.
 
 =head1 SEE ALSO
 

@@ -436,6 +436,61 @@ sub _success_json {
     throws_ok { $mgmt->update_org } qr/name required/, 'update_org validates name';
 }
 
+# Identity provider operations.
+{
+    my $mgmt = Local::Recorder->new(
+        base_url => 'https://zitadel.example.com',
+        token    => 'pat-token',
+    );
+
+    $mgmt->create_oidc_idp(
+        name          => 'Google',
+        client_id     => 'gid',
+        client_secret => 'gsecret',
+        issuer        => 'https://accounts.google.com',
+        scopes        => ['openid', 'email'],
+        auto_register => 1,
+    );
+    $mgmt->list_idps(limit => 5);
+    $mgmt->get_idp('idp1');
+    $mgmt->update_idp('idp1', name => 'Google Updated');
+    $mgmt->activate_idp('idp1');
+    $mgmt->deactivate_idp('idp1');
+    $mgmt->delete_idp('idp1');
+
+    my $c = $mgmt->calls;
+
+    is $c->[0][0], 'POST', 'create_oidc_idp uses POST';
+    is $c->[0][1], '/idps/oidc', 'create_oidc_idp path';
+    is $c->[0][2]{name}, 'Google', 'create_oidc_idp name';
+    is $c->[0][2]{clientId}, 'gid', 'create_oidc_idp clientId';
+    is $c->[0][2]{clientSecret}, 'gsecret', 'create_oidc_idp clientSecret';
+    is $c->[0][2]{issuer}, 'https://accounts.google.com', 'create_oidc_idp issuer';
+    is_deeply $c->[0][2]{scopes}, ['openid', 'email'], 'create_oidc_idp scopes';
+    ok $c->[0][2]{autoRegister}, 'create_oidc_idp auto_register -> autoRegister';
+
+    is $c->[1][1], '/idps/_search', 'list_idps path';
+    is $c->[1][2]{query}{limit}, 5, 'list_idps limit';
+
+    is_deeply $c->[2], ['GET', '/idps/idp1', undef], 'get_idp path';
+
+    is $c->[3][0], 'PUT', 'update_idp uses PUT';
+    is $c->[3][1], '/idps/idp1', 'update_idp path';
+    is $c->[3][2]{name}, 'Google Updated', 'update_idp name';
+
+    is_deeply $c->[4], ['POST', '/idps/idp1/_activate',   {}], 'activate_idp path';
+    is_deeply $c->[5], ['POST', '/idps/idp1/_deactivate', {}], 'deactivate_idp path';
+    is_deeply $c->[6], ['DELETE', '/idps/idp1', undef],        'delete_idp path';
+
+    throws_ok { $mgmt->create_oidc_idp(client_id => 'x', client_secret => 'y', issuer => 'z') }
+        qr/name required/, 'create_oidc_idp validates name';
+    throws_ok { $mgmt->create_oidc_idp(name => 'n', client_secret => 'y', issuer => 'z') }
+        qr/client_id required/, 'create_oidc_idp validates client_id';
+    throws_ok { $mgmt->get_idp(undef) }    qr/idp_id required/, 'get_idp validates idp_id';
+    throws_ok { $mgmt->delete_idp(undef) } qr/idp_id required/, 'delete_idp validates idp_id';
+    throws_ok { $mgmt->update_idp('i1') }  qr/name required/,   'update_idp validates name';
+}
+
 # _request produces API exception objects with typed class.
 {
     my $ua = Local::MgmtUA->new(

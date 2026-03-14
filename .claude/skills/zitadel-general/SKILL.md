@@ -15,41 +15,50 @@ Use this skill when working on ZITADEL-related tasks in this workspace, especial
 
 ## Primary repos
 
-- Library: `p5-www-zitadel/`
+- Sync client: `p5-www-zitadel/` — `WWW::Zitadel::*`
+- Async client: `p5-net-async-zitadel/` — `Net::Async::Zitadel::*` (IO::Async, Future-based, `_f` suffix)
 - HI app integration target: `hi-proto/`
+
+Both client repos have identical Management API surface. Async methods are `method_f` returning Futures.
 
 ## Workflow
 
 1. Determine scope first:
-- `library`: API client behavior in `WWW::Zitadel::*`
+- `library`: API client behavior in `WWW::Zitadel::*` or `Net::Async::Zitadel::*`
 - `integration`: how HI services consume verified identity
 - `deployment`: k8s runtime (issuer, DNS, cert, gateway, live checks)
 
-2. For library changes in `p5-www-zitadel`:
-- Edit modules in `lib/WWW/Zitadel*.pm`
-- Add/adjust offline tests in `t/02-oidc.t` and `t/03-management.t`
-- Keep live tests opt-in (`t/90-live-zitadel.t`, `t/91-k8s-pod.t`)
-- Update `README.md` and `Changes`
+2. For library changes — keep both repos in sync:
+- Sync: edit `lib/WWW/Zitadel/Management.pm` and `t/03-management.t`
+- Async: edit `lib/Net/Async/Zitadel/Management.pm` and `t/03-management.t`
+- Keep live tests opt-in (sync: `t/90-live-zitadel.t`; async: `t/10-integration.t`)
+- Update `Changes` in both repos
 
-3. For HI integration:
-- Check current auth mode before changing behavior
-- Document whether integration is edge auth only or native token verification
-- Add explicit config shape examples (issuer/client/audience/scopes)
+3. For OIDC changes (sync → async differences):
+- Sync: `WWW::Zitadel::OIDC` — blocking LWP calls
+- Async: `Net::Async::Zitadel::OIDC` — has `discovery_ttl`/`jwks_ttl` caching attrs and JWKS in-flight coalescing
 
 4. Always validate with:
 ```bash
-cd /storage/raid/home/getty/dev/perl/p5-www-zitadel
-prove -lr t
+cd /storage/raid/home/getty/dev/perl/p5-www-zitadel && prove -lr t
+cd /storage/raid/home/getty/dev/perl/p5-net-async-zitadel && prove -lr t
 ```
 
-5. Optional live validation:
+5. Optional live validation (sync):
 ```bash
 ZITADEL_LIVE_TEST=1 \
 ZITADEL_ISSUER='https://<issuer>' \
 prove -lv t/90-live-zitadel.t
 ```
 
-6. Optional pod-to-issuer connectivity test:
+6. Optional live validation (async):
+```bash
+ZITADEL_ISSUER='https://<issuer>' \
+ZITADEL_TOKEN='<pat>' \
+prove -lv t/10-integration.t
+```
+
+7. Optional pod-to-issuer connectivity test:
 ```bash
 ZITADEL_K8S_TEST=1 \
 ZITADEL_ISSUER='https://<issuer>' \
