@@ -23,6 +23,8 @@ Revision history for WWW-Zitadel
       - Password: `set_password`, `request_password_reset`
       - User metadata: `set_user_metadata`, `get_user_metadata`, `list_user_metadata`
       - Orgs: `create_org`, `list_orgs`, `update_org`, `deactivate_org`
+      - Identity Providers: `create_oidc_idp`, `list_idps`, `get_idp`,
+        `update_idp`, `delete_idp`, `activate_idp`, `deactivate_idp`
     - Documentation improvements:
       - UA instance reuse / connection pooling pattern
       - `queries` parameter format with examples

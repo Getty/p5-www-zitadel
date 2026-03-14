@@ -144,6 +144,15 @@ $mgmt->create_user_grant(
 # Organizations
 my $orgs = $mgmt->list_orgs;
 $mgmt->update_org(name => 'Acme Corp');
+
+# Identity Providers (social login / federated IdPs)
+my $idp = $mgmt->create_oidc_idp(
+    name          => 'Google',
+    client_id     => $google_client_id,
+    client_secret => $google_client_secret,
+    issuer        => 'https://accounts.google.com',
+);
+$mgmt->activate_idp($idp->{idp}{id});
 ```
 
 ### Sharing a single `LWP::UserAgent` (connection pooling)
@@ -438,6 +447,8 @@ examples/bootstrap_project.pl
 - Orgs: `get_org`, `create_org`, `list_orgs`, `update_org`, `deactivate_org`
 - Roles: `add_project_role`, `list_project_roles`
 - Grants: `create_user_grant`, `list_user_grants`
+- IDPs: `create_oidc_idp`, `list_idps`, `get_idp`, `update_idp`,
+  `delete_idp`, `activate_idp`, `deactivate_idp`
 
 ### `WWW::Zitadel::Error`
 
