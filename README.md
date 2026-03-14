@@ -95,7 +95,7 @@ my $mgmt = WWW::Zitadel::Management->new(
     token    => $ENV{ZITADEL_PAT},
 );
 
-# Users
+# Human users
 my $users = $mgmt->list_users(limit => 50);
 my $user = $mgmt->create_human_user(
     user_name  => 'alice',
@@ -103,6 +103,15 @@ my $user = $mgmt->create_human_user(
     last_name  => 'Smith',
     email      => 'alice@example.com',
 );
+$mgmt->set_password($user->{userId}, password => 'ch@ngeMe!');
+$mgmt->set_user_metadata($user->{userId}, 'department', 'engineering');
+
+# Service (machine) users + machine keys for JWT auth
+my $svc = $mgmt->create_service_user(
+    user_name => 'ci-bot',
+    name      => 'CI Bot',
+);
+my $key = $mgmt->add_machine_key($svc->{userId});
 
 # Projects
 my $project = $mgmt->create_project(name => 'My Project');
@@ -114,19 +123,108 @@ my $app = $mgmt->create_oidc_app(
     redirect_uris => ['https://app.example.com/callback'],
 );
 
+# Update an OIDC app (all keys in snake_case, same as create)
+$mgmt->update_oidc_app($project->{id}, $app->{appId},
+    redirect_uris => ['https://app.example.com/callback', 'https://app.example.com/silent'],
+    dev_mode      => JSON::MaybeXS::false,
+);
+
 # Roles and grants
 $mgmt->add_project_role(
     $project->{id},
     role_key     => 'admin',
     display_name => 'Administrator',
 );
-
 $mgmt->create_user_grant(
     user_id    => $user->{userId},
     project_id => $project->{id},
     role_keys  => ['admin'],
 );
+
+# Organizations
+my $orgs = $mgmt->list_orgs;
+$mgmt->update_org(name => 'Acme Corp');
 ```
+
+### Sharing a single `LWP::UserAgent` (connection pooling)
+
+Passing a shared UA instance to both clients lets them reuse the same
+HTTP keep-alive connections to the ZITADEL server:
+
+```perl
+use LWP::UserAgent;
+use WWW::Zitadel::OIDC;
+use WWW::Zitadel::Management;
+
+my $ua = LWP::UserAgent->new(timeout => 30);
+
+my $oidc = WWW::Zitadel::OIDC->new(
+    issuer => 'https://zitadel.example.com',
+    ua     => $ua,
+);
+my $mgmt = WWW::Zitadel::Management->new(
+    base_url => 'https://zitadel.example.com',
+    token    => $ENV{ZITADEL_PAT},
+    ua       => $ua,
+);
+```
+
+Or use the `WWW::Zitadel` façade, which automatically shares one UA when
+you access both `->oidc` and `->management`.
+
+### Filtering with the `queries` parameter
+
+All `list_*` methods accept a `queries` arrayref using ZITADEL's native
+query filter format.  Each element is a query object as documented in the
+[ZITADEL Management API reference](https://zitadel.com/docs/apis/mgmtapi).
+
+```perl
+# Find users whose display name contains "alice"
+my $result = $mgmt->list_users(
+    queries => [
+        {
+            displayNameQuery => {
+                displayName => 'alice',
+                method      => 'TEXT_QUERY_METHOD_CONTAINS',
+            },
+        },
+    ],
+);
+
+# Find projects by name prefix
+my $projects = $mgmt->list_projects(
+    queries => [
+        { nameQuery => { name => 'My', method => 'TEXT_QUERY_METHOD_STARTS_WITH' } },
+    ],
+);
+```
+
+### Token refresh strategy
+
+ZITADEL access tokens are short-lived (default 12h). Common patterns:
+
+- **On-demand**: call `$oidc->client_credentials_token(...)` before each
+  operation, or cache the token until `exp - 60s`.
+- **Proactive refresh**: track the `expires_in` from the token response and
+  schedule a refresh at 80 % of the lifetime.
+- **Lazy retry**: catch `WWW::Zitadel::Error::API` with `http_status`
+  matching `401` and re-fetch a token before retrying once.
+
+### JWKS key rotation
+
+`verify_token` automatically retries with a fresh JWKS fetch when
+signature verification fails (transparent key rotation handling).  The
+JWKS is cached in the `WWW::Zitadel::OIDC` object for the lifetime of
+the instance.  Force an immediate refresh:
+
+```perl
+$oidc->jwks(force_refresh => 1);
+```
+
+If you run multiple processes, each process maintains its own JWKS cache.
+Under normal ZITADEL key rotation schedules (months) this is not an issue.
+Set the object lifetime to match your deployment's rotation period if you
+need tighter guarantees.
 
 ## Authentication
 
@@ -136,14 +234,39 @@ $mgmt->create_user_grant(
 
 ## Error handling
 
-This distribution currently uses `die` on API or validation errors.
-Typical examples:
+All errors are thrown as `WWW::Zitadel::Error` subclass objects.
+Because they overload `""`, existing `eval`/`$@` string-matching patterns
+continue to work.  For typed dispatch use `isa`:
 
-- missing required constructor params (`issuer`, `base_url`, `token`)
-- missing required method params (`user_id`, `project_id`, ...)
-- HTTP errors (includes API message when present)
+```perl
+use WWW::Zitadel::Error;
 
-Wrap calls in `eval`/`Try::Tiny` if you need structured handling.
+eval { $mgmt->get_user($user_id) };
+if (my $err = $@) {
+    if (ref $err && $err->isa('WWW::Zitadel::Error::API')) {
+        # $err->http_status — e.g. "404 Not Found"
+        # $err->api_message — message field from the JSON body
+        warn "API error: $err";
+    }
+    elsif (ref $err && $err->isa('WWW::Zitadel::Error::Validation')) {
+        warn "Bad argument: $err";
+    }
+    elsif (ref $err && $err->isa('WWW::Zitadel::Error::Network')) {
+        warn "Network/HTTP error: $err";
+    }
+    else {
+        die $err;  # re-throw unknown
+    }
+}
+```
+
+Three exception types:
+
+| Class | When raised |
+|---|---|
+| `WWW::Zitadel::Error::Validation` | Missing/invalid arguments, empty issuer/base_url |
+| `WWW::Zitadel::Error::Network` | Discovery, JWKS, UserInfo, Token endpoint HTTP failures |
+| `WWW::Zitadel::Error::API` | Management API non-2xx responses |
 
 ## Development workflow
 
@@ -303,13 +426,25 @@ examples/bootstrap_project.pl
 
 - Users: `list_users`, `get_user`, `create_human_user`, `update_user`,
   `deactivate_user`, `reactivate_user`, `delete_user`
+- Passwords: `set_password`, `request_password_reset`
+- Metadata: `set_user_metadata`, `get_user_metadata`, `list_user_metadata`
+- Service users: `create_service_user`, `list_service_users`,
+  `get_service_user`, `delete_service_user`
+- Machine keys: `add_machine_key`, `list_machine_keys`, `remove_machine_key`
 - Projects: `list_projects`, `get_project`, `create_project`,
   `update_project`, `delete_project`
 - Apps: `list_apps`, `get_app`, `create_oidc_app`, `update_oidc_app`,
   `delete_app`
-- Orgs: `get_org`
+- Orgs: `get_org`, `create_org`, `list_orgs`, `update_org`, `deactivate_org`
 - Roles: `add_project_role`, `list_project_roles`
 - Grants: `create_user_grant`, `list_user_grants`
+
+### `WWW::Zitadel::Error`
+
+- `WWW::Zitadel::Error` (base, stringifies to `message`)
+- `WWW::Zitadel::Error::Validation`
+- `WWW::Zitadel::Error::Network`
+- `WWW::Zitadel::Error::API` (adds `http_status`, `api_message`)
 
 ## See also
 

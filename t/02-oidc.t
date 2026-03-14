@@ -329,4 +329,172 @@ sub _success_json {
     throws_ok { $oidc->exchange_authorization_code(code => 'x') } qr/redirect_uri required/, 'authorization code exchange requires redirect_uri';
 }
 
+# Malformed / non-JSON body on a successful HTTP response dies cleanly.
+{
+    my $ua = Local::OIDCUA->new(
+        get_queue => [
+            _success_json(_discovery_json()),
+            Local::Response->new(
+                is_success      => 1,
+                status_line     => '200 OK',
+                decoded_content => '<html>not json</html>',
+            ),
+        ],
+    );
+
+    my $oidc = WWW::Zitadel::OIDC->new(
+        issuer => 'https://zitadel.example.com',
+        ua     => $ua,
+    );
+
+    # decode_json throws on invalid JSON; that exception propagates to the caller
+    throws_ok { $oidc->jwks } qr/.+/, 'non-JSON JWKS body causes an exception';
+}
+
+# Truncated JSON body also causes a decode error.
+{
+    my $ua = Local::OIDCUA->new(
+        get_queue => [
+            _success_json(_discovery_json()),
+            Local::Response->new(
+                is_success      => 1,
+                status_line     => '200 OK',
+                decoded_content => '{"keys":[{"kid":"k1"',   # truncated
+            ),
+        ],
+    );
+
+    my $oidc = WWW::Zitadel::OIDC->new(
+        issuer => 'https://zitadel.example.com',
+        ua     => $ua,
+    );
+
+    throws_ok { $oidc->jwks } qr/.+/, 'truncated JSON JWKS body causes an exception';
+}
+
+# Empty JWKS keys array is valid JSON but verify_token should still fail
+# (Crypt::JWT cannot find a matching key).
+{
+    my $ua = Local::OIDCUA->new(
+        get_queue => [
+            _success_json(_discovery_json()),
+            _success_json({ keys => [] }),          # valid but empty
+            _success_json({ keys => [] }),          # for the retry fetch
+        ],
+    );
+
+    my $oidc = Local::MockOIDC->new(
+        issuer  => 'https://zitadel.example.com',
+        ua      => $ua,
+        decoder => sub { die "no matching key found" },
+    );
+
+    throws_ok { $oidc->verify_token('some.jwt.token') }
+        qr/no matching key found/, 'empty JWKS keys array causes verify_token to die';
+}
+
+# Token with missing required claims: decoder receives the JWKS but dies on
+# claim validation; the error propagates after the retry attempt.
+{
+    my $decode_calls = 0;
+
+    my $ua = Local::OIDCUA->new(
+        get_queue => [
+            _success_json(_discovery_json()),
+            _success_json({ keys => [ { kid => 'k1' } ] }),
+            _success_json({ keys => [ { kid => 'k2' } ] }),
+        ],
+    );
+
+    my $oidc = Local::MockOIDC->new(
+        issuer  => 'https://zitadel.example.com',
+        ua      => $ua,
+        decoder => sub {
+            $decode_calls++;
+            die "missing required claim: sub";
+        },
+    );
+
+    throws_ok { $oidc->verify_token('some.jwt.token') }
+        qr/missing required claim: sub/, 'missing claim error propagates after retry';
+    is $decode_calls, 2, 'decoder called twice (initial + retry) for missing-claim error';
+}
+
+# Discovery endpoint returning incomplete document: missing jwks_uri.
+{
+    my $ua = Local::OIDCUA->new(
+        get_queue => [
+            _success_json({
+                token_endpoint    => 'https://zitadel.example.com/oauth/v2/token',
+                # jwks_uri intentionally absent
+            }),
+        ],
+    );
+
+    my $oidc = WWW::Zitadel::OIDC->new(
+        issuer => 'https://zitadel.example.com',
+        ua     => $ua,
+    );
+
+    throws_ok { $oidc->jwks_uri }
+        qr/No jwks_uri in discovery document/, 'missing jwks_uri in discovery dies';
+    throws_ok { $oidc->userinfo_endpoint }
+        qr/No userinfo_endpoint/, 'missing userinfo_endpoint in discovery dies';
+    throws_ok { $oidc->authorization_endpoint }
+        qr/No authorization_endpoint/, 'missing authorization_endpoint in discovery dies';
+    throws_ok { $oidc->introspection_endpoint }
+        qr/No introspection_endpoint/, 'missing introspection_endpoint in discovery dies';
+
+    is scalar @{ $ua->calls->{get} }, 1, 'incomplete discovery fetched only once (cached)';
+}
+
+# Network failure fetching discovery dies as WWW::Zitadel::Error::Network.
+{
+    use WWW::Zitadel::Error;
+
+    my $ua = Local::OIDCUA->new(
+        get_queue => [
+            Local::Response->new(
+                is_success  => 0,
+                status_line => '503 Service Unavailable',
+                decoded_content => '',
+            ),
+        ],
+    );
+
+    my $oidc = WWW::Zitadel::OIDC->new(
+        issuer => 'https://zitadel.example.com',
+        ua     => $ua,
+    );
+
+    eval { $oidc->discovery };
+    my $err = $@;
+    ok ref $err && $err->isa('WWW::Zitadel::Error::Network'), 'discovery failure throws Network exception';
+    like "$err", qr/Discovery failed: 503/, 'discovery Network error stringifies with status';
+}
+
+# Network failure fetching JWKS dies as WWW::Zitadel::Error::Network.
+{
+    my $ua = Local::OIDCUA->new(
+        get_queue => [
+            _success_json(_discovery_json()),
+            Local::Response->new(
+                is_success  => 0,
+                status_line => '500 Internal Server Error',
+                decoded_content => '',
+            ),
+        ],
+    );
+
+    my $oidc = WWW::Zitadel::OIDC->new(
+        issuer => 'https://zitadel.example.com',
+        ua     => $ua,
+    );
+
+    eval { $oidc->jwks };
+    my $err = $@;
+    ok ref $err && $err->isa('WWW::Zitadel::Error::Network'), 'JWKS fetch failure throws Network exception';
+    like "$err", qr/JWKS fetch failed: 500/, 'JWKS Network error stringifies with status';
+}
+
 done_testing;

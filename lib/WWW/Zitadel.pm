@@ -5,6 +5,7 @@ package WWW::Zitadel;
 use Moo;
 use WWW::Zitadel::OIDC;
 use WWW::Zitadel::Management;
+use WWW::Zitadel::Error;
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -13,6 +14,13 @@ has issuer => (
     is       => 'ro',
     required => 1,
 );
+
+sub BUILD {
+    my $self = shift;
+    die WWW::Zitadel::Error::Validation->new(
+        message => 'issuer must not be empty',
+    ) unless length $self->issuer;
+}
 
 has token => (
     is  => 'ro',
@@ -30,7 +38,9 @@ has management => (
     is      => 'lazy',
     builder => sub {
         my $self = shift;
-        die "Management API requires a token\n" unless $self->token;
+        die WWW::Zitadel::Error::Validation->new(
+            message => 'Management API requires a token',
+        ) unless $self->token;
         WWW::Zitadel::Management->new(
             base_url => $self->issuer,
             token    => $self->token,

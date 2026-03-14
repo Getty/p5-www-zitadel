@@ -7,6 +7,7 @@ use Crypt::JWT qw(decode_jwt);
 use JSON::MaybeXS qw(decode_json);
 use LWP::UserAgent;
 use URI;
+use WWW::Zitadel::Error;
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -15,6 +16,13 @@ has issuer => (
     is       => 'ro',
     required => 1,
 );
+
+sub BUILD {
+    my $self = shift;
+    die WWW::Zitadel::Error::Validation->new(
+        message => 'issuer must not be empty',
+    ) unless length $self->issuer;
+}
 
 has ua => (
     is      => 'lazy',
@@ -27,7 +35,11 @@ has _discovery => (
         my $self = shift;
         my $url = $self->issuer . '/.well-known/openid-configuration';
         my $res = $self->ua->get($url);
-        die "Discovery failed: " . $res->status_line . "\n" unless $res->is_success;
+        unless ($res->is_success) {
+            die WWW::Zitadel::Error::Network->new(
+                message => 'Discovery failed: ' . $res->status_line,
+            );
+        }
         decode_json($res->decoded_content);
     },
 );
@@ -78,7 +90,11 @@ sub jwks {
     }
 
     my $res = $self->ua->get($self->jwks_uri);
-    die "JWKS fetch failed: " . $res->status_line . "\n" unless $res->is_success;
+    unless ($res->is_success) {
+        die WWW::Zitadel::Error::Network->new(
+            message => 'JWKS fetch failed: ' . $res->status_line,
+        );
+    }
     my $jwks = decode_json($res->decoded_content);
     $self->_jwks_cache($jwks);
     return $jwks;
@@ -86,7 +102,8 @@ sub jwks {
 
 sub verify_token {
     my ($self, $token, %args) = @_;
-    die "No token provided\n" unless defined $token;
+    die WWW::Zitadel::Error::Validation->new(message => 'No token provided')
+        unless defined $token;
 
     my $jwks = $self->jwks;
     my $claims;
@@ -130,21 +147,28 @@ sub _decode_jwt {
 
 sub userinfo {
     my ($self, $access_token) = @_;
-    die "No access token provided\n" unless defined $access_token;
+    die WWW::Zitadel::Error::Validation->new(message => 'No access token provided')
+        unless defined $access_token;
 
     my $res = $self->ua->get(
         $self->userinfo_endpoint,
         Authorization => "Bearer $access_token",
     );
-    die "UserInfo failed: " . $res->status_line . "\n" unless $res->is_success;
+    unless ($res->is_success) {
+        die WWW::Zitadel::Error::Network->new(
+            message => 'UserInfo failed: ' . $res->status_line,
+        );
+    }
     return decode_json($res->decoded_content);
 }
 
 sub introspect {
     my ($self, $token, %args) = @_;
-    die "No token provided\n" unless defined $token;
-    die "Introspection requires client_id and client_secret\n"
-        unless $args{client_id} && $args{client_secret};
+    die WWW::Zitadel::Error::Validation->new(message => 'No token provided')
+        unless defined $token;
+    die WWW::Zitadel::Error::Validation->new(
+        message => 'Introspection requires client_id and client_secret',
+    ) unless $args{client_id} && $args{client_secret};
 
     my $res = $self->ua->post(
         $self->introspection_endpoint,
@@ -156,7 +180,11 @@ sub introspect {
             token_type_hint => $args{token_type_hint} // 'access_token',
         },
     );
-    die "Introspection failed: " . $res->status_line . "\n" unless $res->is_success;
+    unless ($res->is_success) {
+        die WWW::Zitadel::Error::Network->new(
+            message => 'Introspection failed: ' . $res->status_line,
+        );
+    }
     return decode_json($res->decoded_content);
 }
 
@@ -164,7 +192,7 @@ sub token {
     my ($self, %args) = @_;
 
     my $grant_type = delete $args{grant_type}
-        // die "grant_type required\n";
+        // die WWW::Zitadel::Error::Validation->new(message => 'grant_type required');
 
     my $res = $self->ua->post(
         $self->token_endpoint,
@@ -174,7 +202,11 @@ sub token {
             %args,
         },
     );
-    die "Token endpoint failed: " . $res->status_line . "\n" unless $res->is_success;
+    unless ($res->is_success) {
+        die WWW::Zitadel::Error::Network->new(
+            message => 'Token endpoint failed: ' . $res->status_line,
+        );
+    }
     return decode_json($res->decoded_content);
 }
 
@@ -182,9 +214,9 @@ sub client_credentials_token {
     my ($self, %args) = @_;
 
     my $client_id = delete $args{client_id}
-        // die "client_id required\n";
+        // die WWW::Zitadel::Error::Validation->new(message => 'client_id required');
     my $client_secret = delete $args{client_secret}
-        // die "client_secret required\n";
+        // die WWW::Zitadel::Error::Validation->new(message => 'client_secret required');
 
     return $self->token(
         grant_type    => 'client_credentials',
@@ -196,7 +228,8 @@ sub client_credentials_token {
 
 sub refresh_token {
     my ($self, $refresh_token, %args) = @_;
-    die "refresh_token required\n" unless defined $refresh_token && length $refresh_token;
+    die WWW::Zitadel::Error::Validation->new(message => 'refresh_token required')
+        unless defined $refresh_token && length $refresh_token;
 
     return $self->token(
         grant_type    => 'refresh_token',
@@ -209,9 +242,9 @@ sub exchange_authorization_code {
     my ($self, %args) = @_;
 
     my $code = delete $args{code}
-        // die "code required\n";
+        // die WWW::Zitadel::Error::Validation->new(message => 'code required');
     my $redirect_uri = delete $args{redirect_uri}
-        // die "redirect_uri required\n";
+        // die WWW::Zitadel::Error::Validation->new(message => 'redirect_uri required');
 
     return $self->token(
         grant_type   => 'authorization_code',

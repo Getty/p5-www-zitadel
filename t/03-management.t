@@ -218,7 +218,7 @@ sub _success_json {
 
     $mgmt->list_apps('p1');
     $mgmt->get_app('p1', 'a1');
-    $mgmt->update_oidc_app('p1', 'a1', redirectUris => ['https://example/cb']);
+    $mgmt->update_oidc_app('p1', 'a1', redirect_uris => ['https://example/cb']);
     $mgmt->delete_app('p1', 'a1');
 
     $mgmt->get_org;
@@ -288,6 +288,177 @@ sub _success_json {
     throws_ok {
         $mgmt->create_user_grant(project_id => 'p1', role_keys => ['admin']);
     } qr/user_id required/, 'create_user_grant validates user_id';
+}
+
+# update_oidc_app maps snake_case keys to camelCase.
+{
+    my $mgmt = Local::Recorder->new(
+        base_url => 'https://zitadel.example.com',
+        token    => 'pat-token',
+    );
+
+    $mgmt->update_oidc_app('p1', 'a1',
+        redirect_uris           => ['https://app.example.com/cb'],
+        response_types          => ['OIDC_RESPONSE_TYPE_CODE'],
+        grant_types             => ['OIDC_GRANT_TYPE_AUTHORIZATION_CODE'],
+        app_type                => 'OIDC_APP_TYPE_WEB',
+        auth_method             => 'OIDC_AUTH_METHOD_TYPE_BASIC',
+        post_logout_uris        => ['https://app.example.com/logout'],
+        dev_mode                => JSON::MaybeXS::false,
+        access_token_type       => 'OIDC_TOKEN_TYPE_BEARER',
+        id_token_role_assertion => JSON::MaybeXS::true,
+        additional_origins      => ['https://app2.example.com'],
+    );
+
+    my ($method, $path, $body) = @{ $mgmt->calls->[0] };
+    is $method, 'PUT', 'update_oidc_app uses PUT';
+    is $path, '/projects/p1/apps/a1/oidc_config', 'update_oidc_app path';
+    is_deeply $body->{redirectUris}, ['https://app.example.com/cb'], 'redirect_uris -> redirectUris';
+    is_deeply $body->{responseTypes}, ['OIDC_RESPONSE_TYPE_CODE'], 'response_types -> responseTypes';
+    is_deeply $body->{grantTypes}, ['OIDC_GRANT_TYPE_AUTHORIZATION_CODE'], 'grant_types -> grantTypes';
+    is $body->{appType}, 'OIDC_APP_TYPE_WEB', 'app_type -> appType';
+    is $body->{authMethodType}, 'OIDC_AUTH_METHOD_TYPE_BASIC', 'auth_method -> authMethodType';
+    is_deeply $body->{postLogoutRedirectUris}, ['https://app.example.com/logout'], 'post_logout_uris -> postLogoutRedirectUris';
+    is_deeply $body->{additionalOrigins}, ['https://app2.example.com'], 'additional_origins -> additionalOrigins';
+}
+
+# Service users and machine keys.
+{
+    my $mgmt = Local::Recorder->new(
+        base_url => 'https://zitadel.example.com',
+        token    => 'pat-token',
+    );
+
+    $mgmt->create_service_user(user_name => 'ci-bot', name => 'CI Bot', description => 'CI pipeline user');
+    $mgmt->list_service_users(limit => 10);
+    $mgmt->get_service_user('su1');
+    $mgmt->delete_service_user('su1');
+
+    $mgmt->add_machine_key('su1', type => 'KEY_TYPE_JSON', expiration_date => '2030-01-01T00:00:00Z');
+    $mgmt->list_machine_keys('su1', limit => 5);
+    $mgmt->remove_machine_key('su1', 'key1');
+
+    my $c = $mgmt->calls;
+
+    is $c->[0][0], 'POST', 'create_service_user uses POST';
+    is $c->[0][1], '/users/machine', 'create_service_user path';
+    is $c->[0][2]{userName}, 'ci-bot', 'create_service_user userName';
+    is $c->[0][2]{name}, 'CI Bot', 'create_service_user name';
+    is $c->[0][2]{description}, 'CI pipeline user', 'create_service_user description';
+
+    is $c->[1][1], '/users/_search', 'list_service_users path';
+    is $c->[1][2]{query}{limit}, 10, 'list_service_users limit';
+    is $c->[1][2]{queries}[0]{typeQuery}{type}, 'TYPE_MACHINE', 'list_service_users filters by machine type';
+
+    is_deeply $c->[2], ['GET', '/users/su1', undef], 'get_service_user path';
+    is_deeply $c->[3], ['DELETE', '/users/su1', undef], 'delete_service_user path';
+
+    is $c->[4][1], '/users/su1/keys', 'add_machine_key path';
+    is $c->[4][2]{type}, 'KEY_TYPE_JSON', 'add_machine_key type';
+    is $c->[4][2]{expirationDate}, '2030-01-01T00:00:00Z', 'add_machine_key expiration_date -> expirationDate';
+
+    is $c->[5][1], '/users/su1/keys/_search', 'list_machine_keys path';
+    is $c->[5][2]{query}{limit}, 5, 'list_machine_keys limit';
+
+    is_deeply $c->[6], ['DELETE', '/users/su1/keys/key1', undef], 'remove_machine_key path';
+
+    throws_ok { $mgmt->create_service_user(name => 'Bot') } qr/user_name required/, 'create_service_user validates user_name';
+    throws_ok { $mgmt->add_machine_key(undef) } qr/user_id required/, 'add_machine_key validates user_id';
+    throws_ok { $mgmt->remove_machine_key('u1', undef) } qr/key_id required/, 'remove_machine_key validates key_id';
+}
+
+# Password management and user metadata.
+{
+    my $mgmt = Local::Recorder->new(
+        base_url => 'https://zitadel.example.com',
+        token    => 'pat-token',
+    );
+
+    $mgmt->set_password('u1', password => 's3cr3t!', change_required => JSON::MaybeXS::true);
+    $mgmt->request_password_reset('u1');
+
+    $mgmt->set_user_metadata('u1', 'department', 'engineering');
+    $mgmt->get_user_metadata('u1', 'department');
+    $mgmt->list_user_metadata('u1', limit => 20);
+
+    my $c = $mgmt->calls;
+
+    is $c->[0][1], '/users/u1/password', 'set_password path';
+    is $c->[0][2]{password}, 's3cr3t!', 'set_password body has password';
+    ok $c->[0][2]{changeRequired}, 'set_password change_required -> changeRequired';
+
+    is_deeply $c->[1], ['POST', '/users/u1/_reset_password', {}], 'request_password_reset path';
+
+    is $c->[2][1], '/users/u1/metadata/department', 'set_user_metadata path';
+    use MIME::Base64 qw(decode_base64);
+    is decode_base64($c->[2][2]{value}), 'engineering', 'set_user_metadata value is base64-encoded';
+
+    is_deeply $c->[3], ['GET', '/users/u1/metadata/department', undef], 'get_user_metadata path';
+
+    is $c->[4][1], '/users/u1/metadata/_search', 'list_user_metadata path';
+    is $c->[4][2]{query}{limit}, 20, 'list_user_metadata limit';
+
+    throws_ok { $mgmt->set_password(undef, password => 'x') } qr/user_id required/, 'set_password validates user_id';
+    throws_ok { $mgmt->set_password('u1') } qr/password required/, 'set_password validates password';
+    throws_ok { $mgmt->set_user_metadata('u1', undef, 'v') } qr/key required/, 'set_user_metadata validates key';
+    throws_ok { $mgmt->set_user_metadata('u1', 'k', undef) } qr/value required/, 'set_user_metadata validates value';
+}
+
+# Organization operations.
+{
+    my $mgmt = Local::Recorder->new(
+        base_url => 'https://zitadel.example.com',
+        token    => 'pat-token',
+    );
+
+    $mgmt->create_org(name => 'Acme Corp');
+    $mgmt->list_orgs(limit => 50, queries => [{ nameQuery => { name => 'Acme' } }]);
+    $mgmt->update_org(name => 'Acme Inc');
+    $mgmt->deactivate_org;
+
+    my $c = $mgmt->calls;
+
+    is $c->[0][0], 'POST', 'create_org uses POST';
+    is $c->[0][1], '/orgs', 'create_org path';
+    is $c->[0][2]{name}, 'Acme Corp', 'create_org name';
+
+    is $c->[1][1], '/orgs/_search', 'list_orgs path';
+    is $c->[1][2]{query}{limit}, 50, 'list_orgs limit';
+    is scalar @{ $c->[1][2]{queries} }, 1, 'list_orgs queries forwarded';
+
+    is $c->[2][0], 'PUT', 'update_org uses PUT';
+    is $c->[2][1], '/orgs/me', 'update_org path';
+    is $c->[2][2]{name}, 'Acme Inc', 'update_org name';
+
+    is_deeply $c->[3], ['POST', '/orgs/me/_deactivate', {}], 'deactivate_org path';
+
+    throws_ok { $mgmt->create_org } qr/name required/, 'create_org validates name';
+    throws_ok { $mgmt->update_org } qr/name required/, 'update_org validates name';
+}
+
+# _request produces API exception objects with typed class.
+{
+    my $ua = Local::MgmtUA->new(
+        queue => [ Local::Response->new(
+            is_success      => 0,
+            status_line     => '403 Forbidden',
+            decoded_content => encode_json({ message => 'permission denied' }),
+        ) ],
+    );
+
+    my $mgmt = WWW::Zitadel::Management->new(
+        base_url => 'https://zitadel.example.com',
+        token    => 'pat-token',
+        ua       => $ua,
+    );
+
+    eval { $mgmt->_get('/users/x') };
+    my $err = $@;
+    ok ref $err && $err->isa('WWW::Zitadel::Error::API'), 'API errors throw WWW::Zitadel::Error::API';
+    like "$err", qr/403 Forbidden/, 'API error stringifies with status';
+    like "$err", qr/permission denied/, 'API error stringifies with api message';
+    is $err->http_status, '403 Forbidden', 'API error http_status attribute';
+    is $err->api_message, 'permission denied', 'API error api_message attribute';
 }
 
 done_testing;

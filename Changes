@@ -1,6 +1,35 @@
 Revision history for WWW-Zitadel
 
 {{$NEXT}}
+    - Bug fixes:
+      - Removed unused `Path::Tiny` from test dependencies in cpanfile
+      - Removed unused `MIME::Base64` from runtime dependencies in cpanfile
+        (now required lazily where used by metadata methods)
+      - Fixed `Management::update_oidc_app` to map snake_case args to camelCase
+        (`redirect_uris` -> `redirectUris`, etc.) consistent with `create_oidc_app`
+    - Structured exception classes (`WWW::Zitadel::Error`):
+      - `WWW::Zitadel::Error::Validation` -- missing/empty required arguments
+      - `WWW::Zitadel::Error::Network` -- OIDC endpoint HTTP failures
+      - `WWW::Zitadel::Error::API` -- Management API non-2xx responses
+        (carries `http_status` and `api_message` attributes)
+      - All exception objects stringify to their message for backward compatibility
+    - `BUILD` validation for empty `issuer` / `base_url`:
+      - `WWW::Zitadel`, `WWW::Zitadel::OIDC` -- validate non-empty `issuer`
+      - `WWW::Zitadel::Management` -- validate non-empty `base_url`
+    - New Management API endpoints:
+      - Service/machine users: `create_service_user`, `list_service_users`,
+        `get_service_user`, `delete_service_user`
+      - Machine keys: `add_machine_key`, `list_machine_keys`, `remove_machine_key`
+      - Password: `set_password`, `request_password_reset`
+      - User metadata: `set_user_metadata`, `get_user_metadata`, `list_user_metadata`
+      - Orgs: `create_org`, `list_orgs`, `update_org`, `deactivate_org`
+    - Documentation improvements:
+      - UA instance reuse / connection pooling pattern
+      - `queries` parameter format with examples
+      - Token refresh strategy guidance
+      - JWKS key rotation edge case notes
+      - Structured exception handling guide with typed dispatch example
+      - Extended API overview table in README
     - OIDC feature expansion:
       - Added generic token endpoint helper `token(grant_type => ...)`
       - Added convenience helpers:
