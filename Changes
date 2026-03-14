@@ -1,5 +1,7 @@
 Revision history for WWW-Zitadel
 
+{{$NEXT}}
+
 0.001     2026-03-14 05:01:20Z
     - Bug fixes:
       - Removed unused `Path::Tiny` from test dependencies in cpanfile

@@ -10,7 +10,7 @@ use MIME::Base64 qw(encode_base64);
 use WWW::Zitadel::Error;
 use namespace::clean;
 
-our $VERSION = '0.001';
+our $VERSION = '0.002';
 
 has base_url => (
     is       => 'ro',

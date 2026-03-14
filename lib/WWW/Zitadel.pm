@@ -8,7 +8,7 @@ use WWW::Zitadel::Management;
 use WWW::Zitadel::Error;
 use namespace::clean;
 
-our $VERSION = '0.001';
+our $VERSION = '0.002';
 
 has issuer => (
     is       => 'ro',
