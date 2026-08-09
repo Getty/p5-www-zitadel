@@ -1,0 +1,14 @@
+---
+class: standard
+created: 2026-08-09T02:13:28Z
+id: 1
+priority: high
+status: backlog
+tags:
+- release
+- changes
+title: Prepare 0.002 CPAN release
+updated: 2026-08-09T02:13:28Z
+---
+
+$VERSION is 0.002 and Changes has an empty {{$NEXT}} section. Fill it from git log 0.001..HEAD (version bump, skill reorg, dist.ini/gitignore standardization), run dzil build clean, then www-zitadel-release-checker. Release only on maintainer go-ahead.
