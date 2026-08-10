@@ -516,4 +516,428 @@ sub _success_json {
     is $err->api_message, 'permission denied', 'API error api_message attribute';
 }
 
+# create_project maps name and camelCase project options; requires name.
+{
+    my $mgmt = Local::Recorder->new(
+        base_url => 'https://zitadel.example.com',
+        token    => 'pat-token',
+    );
+
+    $mgmt->create_project(
+        name                      => 'My App',
+        project_role_assertion    => JSON::MaybeXS::true,
+        project_role_check        => JSON::MaybeXS::true,
+        has_project_check         => JSON::MaybeXS::true,
+        private_labeling_setting  => 'PRIVATE_LABELING_SETTING_ENFORCE_PROJECT_RESOURCE_OWNER',
+    );
+
+    my ($method, $path, $body) = @{ $mgmt->calls->[0] };
+    is $method, 'POST', 'create_project uses POST';
+    is $path, '/projects', 'create_project path';
+    is $body->{name}, 'My App', 'create_project name mapped';
+    ok $body->{projectRoleAssertion}, 'create_project project_role_assertion -> projectRoleAssertion';
+    ok $body->{projectRoleCheck}, 'create_project project_role_check -> projectRoleCheck';
+    ok $body->{hasProjectCheck}, 'create_project has_project_check -> hasProjectCheck';
+    is $body->{privateLabelingSetting}, 'PRIVATE_LABELING_SETTING_ENFORCE_PROJECT_RESOURCE_OWNER',
+        'create_project private_labeling_setting -> privateLabelingSetting';
+
+    throws_ok { $mgmt->create_project() } qr/name required/, 'create_project validates name';
+}
+
+# update_project forwards camelCase options in addition to name.
+{
+    my $mgmt = Local::Recorder->new(
+        base_url => 'https://zitadel.example.com',
+        token    => 'pat-token',
+    );
+
+    $mgmt->update_project('p1',
+        name                      => 'Renamed',
+        project_role_assertion    => JSON::MaybeXS::true,
+        project_role_check        => JSON::MaybeXS::true,
+        has_project_check         => JSON::MaybeXS::true,
+        private_labeling_setting  => 'PRIVATE_LABELING_SETTING_UNSPECIFIED',
+    );
+
+    my ($method, $path, $body) = @{ $mgmt->calls->[0] };
+    is $method, 'PUT', 'update_project uses PUT';
+    is $path, '/projects/p1', 'update_project path';
+    is $body->{name}, 'Renamed', 'update_project name mapped';
+    ok $body->{projectRoleAssertion}, 'update_project project_role_assertion -> projectRoleAssertion';
+    ok $body->{projectRoleCheck}, 'update_project project_role_check -> projectRoleCheck';
+    ok $body->{hasProjectCheck}, 'update_project has_project_check -> hasProjectCheck';
+    is $body->{privateLabelingSetting}, 'PRIVATE_LABELING_SETTING_UNSPECIFIED',
+        'update_project private_labeling_setting -> privateLabelingSetting';
+
+    throws_ok { $mgmt->update_project(undef) } qr/project_id required/, 'update_project validates project_id';
+    throws_ok { $mgmt->update_project('p1') } qr/name required/, 'update_project validates name';
+}
+
+# create_human_user maps optional profile, email, phone and password fields.
+{
+    my $mgmt = Local::Recorder->new(
+        base_url => 'https://zitadel.example.com',
+        token    => 'pat-token',
+    );
+
+    $mgmt->create_human_user(
+        user_name          => 'bob',
+        first_name         => 'Bob',
+        last_name          => 'Builder',
+        email              => 'bob@example.com',
+        email_verified     => JSON::MaybeXS::true,
+        nick_name          => 'Bobby',
+        preferred_language => 'en',
+        phone              => '+1-555-1234',
+        phone_verified     => JSON::MaybeXS::true,
+        password           => 's3cr3t!',
+    );
+
+    my ($method, $path, $body) = @{ $mgmt->calls->[0] };
+    is $method, 'POST', 'create_human_user (optional) uses POST';
+    is $path, '/users/human', 'create_human_user (optional) path';
+    is $body->{userName}, 'bob', 'create_human_user (optional) userName';
+    is $body->{profile}{nickName}, 'Bobby', 'create_human_user nick_name -> nickName';
+    is $body->{profile}{preferredLanguage}, 'en', 'create_human_user preferred_language -> preferredLanguage';
+    ok $body->{email}{isEmailVerified}, 'create_human_user email_verified -> isEmailVerified';
+    is $body->{phone}{phone}, '+1-555-1234', 'create_human_user phone forwarded';
+    ok $body->{phone}{isPhoneVerified}, 'create_human_user phone_verified -> isPhoneVerified';
+    is $body->{password}, 's3cr3t!', 'create_human_user password forwarded';
+}
+
+# update_user maps display_name and nick_name in addition to first/last name.
+{
+    my $mgmt = Local::Recorder->new(
+        base_url => 'https://zitadel.example.com',
+        token    => 'pat-token',
+    );
+
+    $mgmt->update_user('u1',
+        first_name   => 'Alice',
+        last_name    => 'Wonderland',
+        display_name => 'Alice W.',
+        nick_name    => 'Ali',
+    );
+
+    my ($method, $path, $body) = @{ $mgmt->calls->[0] };
+    is $method, 'PUT', 'update_user (optional) uses PUT';
+    is $path, '/users/u1/profile', 'update_user (optional) path';
+    is $body->{firstName}, 'Alice', 'update_user first_name -> firstName';
+    is $body->{lastName}, 'Wonderland', 'update_user last_name -> lastName';
+    is $body->{displayName}, 'Alice W.', 'update_user display_name -> displayName';
+    is $body->{nickName}, 'Ali', 'update_user nick_name -> nickName';
+}
+
+# User grant lifecycle: update / deactivate / reactivate / delete.
+{
+    my $mgmt = Local::Recorder->new(
+        base_url => 'https://zitadel.example.com',
+        token    => 'pat-token',
+    );
+
+    $mgmt->update_user_grant('u1', 'g1', role_keys => ['admin']);
+    $mgmt->deactivate_user_grant('u1', 'g1');
+    $mgmt->reactivate_user_grant('u1', 'g1');
+    $mgmt->delete_user_grant('u1', 'g1');
+
+    my $c = $mgmt->calls;
+
+    is $c->[0][0], 'PUT', 'update_user_grant uses PUT';
+    is $c->[0][1], '/users/u1/grants/g1', 'update_user_grant path';
+    is_deeply $c->[0][2]{roleKeys}, ['admin'], 'update_user_grant role_keys -> roleKeys';
+
+    is_deeply $c->[1], ['POST', '/users/u1/grants/g1/_deactivate', {}], 'deactivate_user_grant path';
+    is_deeply $c->[2], ['POST', '/users/u1/grants/g1/_reactivate', {}], 'reactivate_user_grant path';
+    is_deeply $c->[3], ['DELETE', '/users/u1/grants/g1', undef], 'delete_user_grant path';
+
+    throws_ok { $mgmt->update_user_grant(undef, 'g1', role_keys => ['admin']) }
+        qr/user_id required/, 'update_user_grant validates user_id';
+    throws_ok { $mgmt->update_user_grant('u1', undef, role_keys => ['admin']) }
+        qr/grant_id required/, 'update_user_grant validates grant_id';
+    throws_ok { $mgmt->deactivate_user_grant(undef, 'g1') }
+        qr/user_id required/, 'deactivate_user_grant validates user_id';
+    throws_ok { $mgmt->delete_user_grant('u1', undef) }
+        qr/grant_id required/, 'delete_user_grant validates grant_id';
+}
+
+# Typed identity providers (JWT, Google, AzureAD, GitHub, GitHub Enterprise,
+# GitLab, GitLab self-hosted, Apple, LDAP) target the Add*Provider endpoints
+# and thread provider_options through as a nested hashref.
+{
+    my $mgmt = Local::Recorder->new(
+        base_url => 'https://zitadel.example.com',
+        token    => 'pat-token',
+    );
+
+    $mgmt->create_jwt_idp(
+        name          => 'J',
+        issuer        => 'https://i',
+        jwt_endpoint  => 'https://j',
+        keys_endpoint => 'https://k',
+        header_name   => 'x',
+        audience      => 'a',
+        provider_options => { isCreationAllowed => JSON::MaybeXS::true },
+    );
+    $mgmt->create_google_idp(
+        name          => 'G',
+        client_id     => 'c',
+        client_secret => 's',
+        provider_options => { isAutoCreation => JSON::MaybeXS::true },
+    );
+    $mgmt->create_azuread_idp(
+        name          => 'A',
+        client_id     => 'c',
+        client_secret => 's',
+        tenant        => 'tid',
+    );
+    $mgmt->create_github_idp(
+        name          => 'GH',
+        client_id     => 'c',
+        client_secret => 's',
+    );
+    $mgmt->create_github_enterprise_idp(
+        name                   => 'GHE',
+        client_id              => 'c',
+        client_secret          => 's',
+        authorization_endpoint => 'https://a',
+        token_endpoint         => 'https://t',
+        user_endpoint          => 'https://u',
+    );
+    $mgmt->create_gitlab_idp(
+        name          => 'GL',
+        client_id     => 'c',
+        client_secret => 's',
+    );
+    $mgmt->create_gitlab_self_hosted_idp(
+        name          => 'GLS',
+        issuer        => 'https://gl',
+        client_id     => 'c',
+        client_secret => 's',
+    );
+    $mgmt->create_apple_idp(
+        name          => 'AP',
+        client_id     => 'c',
+        team_id       => 't',
+        key_id        => 'k',
+        private_key   => 'PK',
+        scopes        => ['email'],
+    );
+    $mgmt->create_ldap_idp(
+        name                 => 'L',
+        servers              => ['ldap://x'],
+        start_tls            => 1,
+        base_dn              => 'dc=x',
+        bind_dn              => 'cn=y',
+        bind_password        => 'p',
+        user_base            => 'ou=users',
+        user_object_classes  => ['person'],
+        user_filters         => ['cn'],
+        timeout              => 5,
+        root_ca              => 'PEM',
+    );
+
+    my $c = $mgmt->calls;
+    use MIME::Base64 qw(decode_base64);
+
+    # JWT
+    is $c->[0][0], 'POST', 'create_jwt_idp uses POST';
+    is $c->[0][1], '/idps/generic_jwt', 'create_jwt_idp path';
+    is $c->[0][2]{name}, 'J', 'create_jwt_idp name';
+    is $c->[0][2]{issuer}, 'https://i', 'create_jwt_idp issuer';
+    is $c->[0][2]{jwtEndpoint}, 'https://j', 'create_jwt_idp jwt_endpoint -> jwtEndpoint';
+    is $c->[0][2]{keysEndpoint}, 'https://k', 'create_jwt_idp keys_endpoint -> keysEndpoint';
+    is $c->[0][2]{headerName}, 'x', 'create_jwt_idp header_name -> headerName';
+    is $c->[0][2]{audience}, 'a', 'create_jwt_idp audience forwarded';
+    ok $c->[0][2]{providerOptions}{isCreationAllowed}, 'create_jwt_idp provider_options nested';
+
+    # Google
+    is $c->[1][1], '/idps/google', 'create_google_idp path';
+    is $c->[1][2]{name}, 'G', 'create_google_idp name forwarded';
+    is $c->[1][2]{clientId}, 'c', 'create_google_idp client_id -> clientId';
+    is $c->[1][2]{clientSecret}, 's', 'create_google_idp client_secret -> clientSecret';
+    ok $c->[1][2]{providerOptions}{isAutoCreation}, 'create_google_idp provider_options nested';
+
+    # AzureAD
+    is $c->[2][1], '/idps/azure', 'create_azuread_idp path';
+    is $c->[2][2]{name}, 'A', 'create_azuread_idp name';
+    is $c->[2][2]{clientId}, 'c', 'create_azuread_idp client_id -> clientId';
+    is $c->[2][2]{clientSecret}, 's', 'create_azuread_idp client_secret -> clientSecret';
+    is $c->[2][2]{tenant}, 'tid', 'create_azuread_idp tenant passthrough';
+
+    # GitHub
+    is $c->[3][1], '/idps/github', 'create_github_idp path';
+    is $c->[3][2]{name}, 'GH', 'create_github_idp name forwarded';
+    is $c->[3][2]{clientId}, 'c', 'create_github_idp client_id -> clientId';
+
+    # GitHub Enterprise
+    is $c->[4][1], '/idps/github_es', 'create_github_enterprise_idp path';
+    is $c->[4][2]{name}, 'GHE', 'create_github_enterprise_idp name';
+    is $c->[4][2]{clientId}, 'c', 'create_github_enterprise_idp client_id -> clientId';
+    is $c->[4][2]{clientSecret}, 's', 'create_github_enterprise_idp client_secret -> clientSecret';
+    is $c->[4][2]{authorizationEndpoint}, 'https://a', 'create_github_enterprise_idp authorization_endpoint -> authorizationEndpoint';
+    is $c->[4][2]{tokenEndpoint}, 'https://t', 'create_github_enterprise_idp token_endpoint -> tokenEndpoint';
+    is $c->[4][2]{userEndpoint}, 'https://u', 'create_github_enterprise_idp user_endpoint -> userEndpoint';
+
+    # GitLab
+    is $c->[5][1], '/idps/gitlab', 'create_gitlab_idp path';
+    is $c->[5][2]{clientId}, 'c', 'create_gitlab_idp client_id -> clientId';
+
+    # GitLab self-hosted
+    is $c->[6][1], '/idps/gitlab_self_hosted', 'create_gitlab_self_hosted_idp path';
+    is $c->[6][2]{issuer}, 'https://gl', 'create_gitlab_self_hosted_idp issuer';
+    is $c->[6][2]{name}, 'GLS', 'create_gitlab_self_hosted_idp name';
+    is $c->[6][2]{clientId}, 'c', 'create_gitlab_self_hosted_idp client_id -> clientId';
+    is $c->[6][2]{clientSecret}, 's', 'create_gitlab_self_hosted_idp client_secret -> clientSecret';
+
+    # Apple
+    is $c->[7][1], '/idps/apple', 'create_apple_idp path';
+    is $c->[7][2]{name}, 'AP', 'create_apple_idp name forwarded';
+    is $c->[7][2]{clientId}, 'c', 'create_apple_idp client_id -> clientId';
+    is $c->[7][2]{teamId}, 't', 'create_apple_idp team_id -> teamId';
+    is $c->[7][2]{keyId}, 'k', 'create_apple_idp key_id -> keyId';
+    is decode_base64($c->[7][2]{privateKey}), 'PK', 'create_apple_idp private_key base64-encoded';
+    is_deeply $c->[7][2]{scopes}, ['email'], 'create_apple_idp scopes forwarded';
+
+    # LDAP
+    is $c->[8][1], '/idps/ldap', 'create_ldap_idp path';
+    is $c->[8][2]{name}, 'L', 'create_ldap_idp name';
+    is_deeply $c->[8][2]{servers}, ['ldap://x'], 'create_ldap_idp servers forwarded';
+    ok $c->[8][2]{startTls}, 'create_ldap_idp start_tls -> startTls';
+    is $c->[8][2]{baseDn}, 'dc=x', 'create_ldap_idp base_dn -> baseDn';
+    is $c->[8][2]{bindDn}, 'cn=y', 'create_ldap_idp bind_dn -> bindDn';
+    is $c->[8][2]{bindPassword}, 'p', 'create_ldap_idp bind_password -> bindPassword';
+    is $c->[8][2]{userBase}, 'ou=users', 'create_ldap_idp user_base -> userBase';
+    is_deeply $c->[8][2]{userFilters}, ['cn'], 'create_ldap_idp user_filters -> userFilters';
+    is $c->[8][2]{timeout}, 5, 'create_ldap_idp timeout forwarded';
+    is decode_base64($c->[8][2]{rootCa}), 'PEM', 'create_ldap_idp root_ca base64-encoded';
+
+    throws_ok { $mgmt->create_jwt_idp(name => 'J') }
+        qr/issuer required/, 'create_jwt_idp validates issuer';
+    throws_ok { $mgmt->create_google_idp() }
+        qr/client_id required/, 'create_google_idp validates client_id (name is optional)';
+    throws_ok { $mgmt->create_ldap_idp(name => 'L') }
+        qr/servers required/, 'create_ldap_idp validates servers';
+    throws_ok { $mgmt->create_ldap_idp(name => 'L', servers => ['x']) }
+        qr/base_dn required/, 'create_ldap_idp validates base_dn after servers';
+    throws_ok { $mgmt->create_apple_idp(client_id => 'c', team_id => 't', key_id => 'k') }
+        qr/private_key required/, 'create_apple_idp validates private_key';
+}
+
+# Project roles and SAML / API applications.
+{
+    my $mgmt = Local::Recorder->new(
+        base_url => 'https://zitadel.example.com',
+        token    => 'pat-token',
+    );
+
+    $mgmt->update_project_role('p1', 'admin', display_name => 'Admin', group => 'g');
+    $mgmt->remove_project_role('p1', 'admin');
+    $mgmt->create_saml_app('p1', name => 'S', metadata_xml => '<?xml version="1.0"?><md/>');
+    $mgmt->create_saml_app('p1', name => 'S2', metadata_url => 'https://m');
+    $mgmt->update_saml_app('p1', 'a1', metadata_xml => '<?xml version="1.0"?><md/>');
+    $mgmt->create_api_app('p1', name => 'A', auth_method => 'API_AUTH_METHOD_TYPE_BASIC');
+
+    my $c = $mgmt->calls;
+    use MIME::Base64 qw(decode_base64);
+
+    is $c->[0][0], 'PUT', 'update_project_role uses PUT';
+    is $c->[0][1], '/projects/p1/roles/admin', 'update_project_role path';
+    is $c->[0][2]{displayName}, 'Admin', 'update_project_role display_name -> displayName';
+    is $c->[0][2]{group}, 'g', 'update_project_role group forwarded';
+
+    is_deeply $c->[1], ['DELETE', '/projects/p1/roles/admin', undef], 'remove_project_role path';
+
+    is $c->[2][0], 'POST', 'create_saml_app (xml) uses POST';
+    is $c->[2][1], '/projects/p1/apps/saml', 'create_saml_app (xml) path';
+    is $c->[2][2]{name}, 'S', 'create_saml_app (xml) name';
+    is decode_base64($c->[2][2]{metadataXml}), '<?xml version="1.0"?><md/>', 'create_saml_app metadata_xml base64-encoded';
+
+    is $c->[3][1], '/projects/p1/apps/saml', 'create_saml_app (url) path';
+    is $c->[3][2]{name}, 'S2', 'create_saml_app (url) name';
+    is $c->[3][2]{metadataUrl}, 'https://m', 'create_saml_app metadata_url -> metadataUrl';
+    ok !exists $c->[3][2]{metadataXml}, 'create_saml_app (url) omits metadataXml';
+
+    is $c->[4][0], 'PUT', 'update_saml_app uses PUT';
+    is $c->[4][1], '/projects/p1/apps/a1/saml_config', 'update_saml_app path';
+    is decode_base64($c->[4][2]{metadataXml}), '<?xml version="1.0"?><md/>', 'update_saml_app metadata_xml base64-encoded';
+
+    is $c->[5][0], 'POST', 'create_api_app uses POST';
+    is $c->[5][1], '/projects/p1/apps/api', 'create_api_app path';
+    is $c->[5][2]{name}, 'A', 'create_api_app name';
+    is $c->[5][2]{authMethodType}, 'API_AUTH_METHOD_TYPE_BASIC', 'create_api_app auth_method -> authMethodType';
+
+    throws_ok { $mgmt->update_project_role(undef, 'admin', display_name => 'X') }
+        qr/project_id required/, 'update_project_role validates project_id';
+    throws_ok { $mgmt->update_project_role('p1', undef, display_name => 'X') }
+        qr/role_key required/, 'update_project_role validates role_key';
+    throws_ok { $mgmt->update_project_role('p1', 'admin') }
+        qr/display_name required/, 'update_project_role validates display_name';
+    throws_ok { $mgmt->remove_project_role('p1', undef) }
+        qr/role_key required/, 'remove_project_role validates role_key';
+    throws_ok { $mgmt->create_saml_app('p1', name => 'S') }
+        qr/metadata_xml or metadata_url required/, 'create_saml_app requires metadata';
+    throws_ok { $mgmt->update_saml_app('p1', 'a1') }
+        qr/metadata_xml or metadata_url required/, 'update_saml_app requires metadata';
+    throws_ok { $mgmt->create_api_app('p1') }
+        qr/name required/, 'create_api_app validates name';
+}
+
+# Organization domains and remaining user lifecycle (lock/unlock/resend).
+{
+    my $mgmt = Local::Recorder->new(
+        base_url => 'https://zitadel.example.com',
+        token    => 'pat-token',
+    );
+
+    $mgmt->reactivate_org;
+    $mgmt->add_org_domain('example.com');
+    $mgmt->generate_org_domain_validation('example.com', type => 'HTTP');
+    $mgmt->validate_org_domain('example.com');
+    $mgmt->set_primary_org_domain('example.com');
+    $mgmt->list_org_domains(limit => 10);
+    $mgmt->remove_org_domain('example.com');
+
+    $mgmt->lock_user('u1');
+    $mgmt->unlock_user('u1');
+    $mgmt->resend_email_verification('u1');
+
+    my $c = $mgmt->calls;
+
+    is_deeply $c->[0], ['POST', '/orgs/me/_reactivate', {}], 'reactivate_org path';
+
+    is $c->[1][0], 'POST', 'add_org_domain uses POST';
+    is $c->[1][1], '/orgs/me/domains', 'add_org_domain path';
+    is $c->[1][2]{domain}, 'example.com', 'add_org_domain domain in body';
+
+    is $c->[2][1], '/orgs/me/domains/example.com/validation/_generate', 'generate_org_domain_validation path';
+    is $c->[2][2]{type}, 'HTTP', 'generate_org_domain_validation type forwarded';
+
+    is_deeply $c->[3], ['POST', '/orgs/me/domains/example.com/validation/_validate', {}], 'validate_org_domain path';
+    is_deeply $c->[4], ['POST', '/orgs/me/domains/example.com/_set_primary', {}], 'set_primary_org_domain path';
+
+    is $c->[5][1], '/orgs/me/domains/_search', 'list_org_domains path';
+    is $c->[5][2]{query}{limit}, 10, 'list_org_domains limit mapped';
+
+    is_deeply $c->[6], ['DELETE', '/orgs/me/domains/example.com', undef], 'remove_org_domain path';
+
+    is_deeply $c->[7], ['POST', '/users/u1/_lock', {}], 'lock_user path';
+    is_deeply $c->[8], ['POST', '/users/u1/_unlock', {}], 'unlock_user path';
+    is_deeply $c->[9], ['POST', '/users/u1/email/_resend_verification', {}], 'resend_email_verification path';
+
+    throws_ok { $mgmt->add_org_domain(undef) }
+        qr/domain required/, 'add_org_domain validates domain';
+    throws_ok { $mgmt->generate_org_domain_validation('example.com') }
+        qr/type required/, 'generate_org_domain_validation validates type';
+    throws_ok { $mgmt->set_primary_org_domain(undef) }
+        qr/domain required/, 'set_primary_org_domain validates domain';
+    throws_ok { $mgmt->remove_org_domain(undef) }
+        qr/domain required/, 'remove_org_domain validates domain';
+    throws_ok { $mgmt->lock_user(undef) }
+        qr/user_id required/, 'lock_user validates user_id';
+    throws_ok { $mgmt->unlock_user(undef) }
+        qr/user_id required/, 'unlock_user validates user_id';
+    throws_ok { $mgmt->resend_email_verification(undef) }
+        qr/user_id required/, 'resend_email_verification validates user_id';
+}
+
 done_testing;

@@ -151,6 +151,18 @@ sub reactivate_user {
     $self->_post("/users/$user_id/_reactivate", {});
 }
 
+sub lock_user {
+    my ($self, $user_id) = @_;
+    $user_id or _require('user_id required');
+    $self->_post("/users/$user_id/_lock", {});
+}
+
+sub unlock_user {
+    my ($self, $user_id) = @_;
+    $user_id or _require('user_id required');
+    $self->_post("/users/$user_id/_unlock", {});
+}
+
 sub delete_user {
     my ($self, $user_id) = @_;
     $user_id or _require('user_id required');
@@ -239,6 +251,12 @@ sub request_password_reset {
     my ($self, $user_id) = @_;
     $user_id or _require('user_id required');
     $self->_post("/users/$user_id/_reset_password", {});
+}
+
+sub resend_email_verification {
+    my ($self, $user_id) = @_;
+    $user_id or _require('user_id required');
+    $self->_post("/users/$user_id/email/_resend_verification", {});
 }
 
 # --- User metadata ---
@@ -383,6 +401,48 @@ sub delete_app {
     $self->_delete("/projects/$project_id/apps/$app_id");
 }
 
+sub create_saml_app {
+    my ($self, $project_id, %args) = @_;
+    $project_id or _require('project_id required');
+    my %body = (
+        name => $args{name} // _require('name required'),
+    );
+    if (defined $args{metadata_xml}) {
+        $body{metadataXml} = encode_base64($args{metadata_xml}, '');
+    } elsif (defined $args{metadata_url}) {
+        $body{metadataUrl} = $args{metadata_url};
+    } else {
+        _require('metadata_xml or metadata_url required');
+    }
+    $body{loginVersion} = $args{login_version} if $args{login_version};
+    $self->_post("/projects/$project_id/apps/saml", \%body);
+}
+
+sub update_saml_app {
+    my ($self, $project_id, $app_id, %args) = @_;
+    $project_id or _require('project_id required');
+    $app_id     or _require('app_id required');
+    my %body;
+    if (defined $args{metadata_xml}) {
+        $body{metadataXml} = encode_base64($args{metadata_xml}, '');
+    } elsif (defined $args{metadata_url}) {
+        $body{metadataUrl} = $args{metadata_url};
+    } else {
+        _require('metadata_xml or metadata_url required');
+    }
+    $body{loginVersion} = $args{login_version} if $args{login_version};
+    $self->_put("/projects/$project_id/apps/$app_id/saml_config", \%body);
+}
+
+sub create_api_app {
+    my ($self, $project_id, %args) = @_;
+    $project_id or _require('project_id required');
+    $self->_post("/projects/$project_id/apps/api", {
+        name => $args{name} // _require('name required'),
+        $args{auth_method} ? (authMethodType => $args{auth_method}) : (),
+    });
+}
+
 # --- Organizations ---
 
 sub get_org {
@@ -420,6 +480,54 @@ sub deactivate_org {
     $self->_post('/orgs/me/_deactivate', {});
 }
 
+sub reactivate_org {
+    my ($self) = @_;
+    $self->_post('/orgs/me/_reactivate', {});
+}
+
+sub add_org_domain {
+    my ($self, $domain) = @_;
+    $domain or _require('domain required');
+    $self->_post('/orgs/me/domains', { domain => $domain });
+}
+
+sub generate_org_domain_validation {
+    my ($self, $domain, %args) = @_;
+    $domain or _require('domain required');
+    $self->_post("/orgs/me/domains/$domain/validation/_generate", {
+        type => $args{type} // _require('type required'),
+    });
+}
+
+sub validate_org_domain {
+    my ($self, $domain) = @_;
+    $domain or _require('domain required');
+    $self->_post("/orgs/me/domains/$domain/validation/_validate", {});
+}
+
+sub set_primary_org_domain {
+    my ($self, $domain) = @_;
+    $domain or _require('domain required');
+    $self->_post("/orgs/me/domains/$domain/_set_primary", {});
+}
+
+sub list_org_domains {
+    my ($self, %args) = @_;
+    $self->_post('/orgs/me/domains/_search', {
+        query => {
+            offset => $args{offset} // 0,
+            limit  => $args{limit}  // 100,
+        },
+        $args{queries} ? (queries => $args{queries}) : (),
+    });
+}
+
+sub remove_org_domain {
+    my ($self, $domain) = @_;
+    $domain or _require('domain required');
+    $self->_delete("/orgs/me/domains/$domain");
+}
+
 # --- Roles ---
 
 sub add_project_role {
@@ -444,6 +552,23 @@ sub list_project_roles {
     });
 }
 
+sub update_project_role {
+    my ($self, $project_id, $role_key, %args) = @_;
+    $project_id or _require('project_id required');
+    $role_key   or _require('role_key required');
+    $self->_put("/projects/$project_id/roles/$role_key", {
+        displayName => $args{display_name} // _require('display_name required'),
+        $args{group} ? (group => $args{group}) : (),
+    });
+}
+
+sub remove_project_role {
+    my ($self, $project_id, $role_key) = @_;
+    $project_id or _require('project_id required');
+    $role_key   or _require('role_key required');
+    $self->_delete("/projects/$project_id/roles/$role_key");
+}
+
 # --- User Grants (role assignments) ---
 
 sub create_user_grant {
@@ -464,6 +589,36 @@ sub list_user_grants {
         },
         $args{queries} ? (queries => $args{queries}) : (),
     });
+}
+
+sub update_user_grant {
+    my ($self, $user_id, $grant_id, %args) = @_;
+    $user_id  or _require('user_id required');
+    $grant_id or _require('grant_id required');
+    $self->_put("/users/$user_id/grants/$grant_id", {
+        $args{role_keys} ? (roleKeys => $args{role_keys}) : (),
+    });
+}
+
+sub deactivate_user_grant {
+    my ($self, $user_id, $grant_id) = @_;
+    $user_id  or _require('user_id required');
+    $grant_id or _require('grant_id required');
+    $self->_post("/users/$user_id/grants/$grant_id/_deactivate", {});
+}
+
+sub reactivate_user_grant {
+    my ($self, $user_id, $grant_id) = @_;
+    $user_id  or _require('user_id required');
+    $grant_id or _require('grant_id required');
+    $self->_post("/users/$user_id/grants/$grant_id/_reactivate", {});
+}
+
+sub delete_user_grant {
+    my ($self, $user_id, $grant_id) = @_;
+    $user_id  or _require('user_id required');
+    $grant_id or _require('grant_id required');
+    $self->_delete("/users/$user_id/grants/$grant_id");
 }
 
 # --- Identity Providers (IDPs) ---
@@ -496,6 +651,130 @@ sub create_oidc_idp {
         $args{display_name_mapping} ? (displayNameMapping => $args{display_name_mapping}) : (),
         $args{username_mapping}     ? (usernameMapping    => $args{username_mapping})     : (),
         $args{auto_register}        ? (autoRegister       => $args{auto_register})        : (),
+    });
+}
+
+sub create_jwt_idp {
+    my ($self, %args) = @_;
+    $self->_post('/idps/generic_jwt', {
+        name         => $args{name}         // _require('name required'),
+        issuer       => $args{issuer}       // _require('issuer required'),
+        jwtEndpoint  => $args{jwt_endpoint}  // _require('jwt_endpoint required'),
+        keysEndpoint => $args{keys_endpoint} // _require('keys_endpoint required'),
+        headerName   => $args{header_name}   // _require('header_name required'),
+        $args{audience}         ? (audience        => $args{audience})         : (),
+        $args{provider_options} ? (providerOptions => $args{provider_options}) : (),
+    });
+}
+
+sub create_google_idp {
+    my ($self, %args) = @_;
+    $self->_post('/idps/google', {
+        $args{name}             ? (name            => $args{name})             : (),
+        clientId     => $args{client_id}     // _require('client_id required'),
+        clientSecret => $args{client_secret} // _require('client_secret required'),
+        $args{scopes}           ? (scopes          => $args{scopes})           : (),
+        $args{provider_options} ? (providerOptions => $args{provider_options}) : (),
+    });
+}
+
+sub create_azuread_idp {
+    my ($self, %args) = @_;
+    my %body = (
+        name         => $args{name}         // _require('name required'),
+        clientId     => $args{client_id}     // _require('client_id required'),
+        clientSecret => $args{client_secret} // _require('client_secret required'),
+        $args{email_verified}   ? (emailVerified  => $args{email_verified})   : (),
+        $args{scopes}           ? (scopes         => $args{scopes})           : (),
+        $args{provider_options} ? (providerOptions => $args{provider_options}) : (),
+    );
+    if ($args{tenant}) {
+        $body{tenant} = $args{tenant};
+    } elsif (defined $args{tenant_id}) {
+        $body{tenant} = { tenantId => $args{tenant_id} };
+    } elsif (defined $args{tenant_type}) {
+        $body{tenant} = { tenantType => $args{tenant_type} };
+    }
+    $self->_post('/idps/azure', \%body);
+}
+
+sub create_github_idp {
+    my ($self, %args) = @_;
+    $self->_post('/idps/github', {
+        $args{name}             ? (name            => $args{name})             : (),
+        clientId     => $args{client_id}     // _require('client_id required'),
+        clientSecret => $args{client_secret} // _require('client_secret required'),
+        $args{scopes}           ? (scopes          => $args{scopes})           : (),
+        $args{provider_options} ? (providerOptions => $args{provider_options}) : (),
+    });
+}
+
+sub create_github_enterprise_idp {
+    my ($self, %args) = @_;
+    $self->_post('/idps/github_es', {
+        clientId            => $args{client_id}            // _require('client_id required'),
+        name                => $args{name}                 // _require('name required'),
+        clientSecret        => $args{client_secret}        // _require('client_secret required'),
+        authorizationEndpoint => $args{authorization_endpoint} // _require('authorization_endpoint required'),
+        tokenEndpoint       => $args{token_endpoint}       // _require('token_endpoint required'),
+        userEndpoint        => $args{user_endpoint}         // _require('user_endpoint required'),
+        $args{scopes}           ? (scopes          => $args{scopes})           : (),
+        $args{provider_options} ? (providerOptions => $args{provider_options}) : (),
+    });
+}
+
+sub create_gitlab_idp {
+    my ($self, %args) = @_;
+    $self->_post('/idps/gitlab', {
+        $args{name}             ? (name            => $args{name})             : (),
+        clientId     => $args{client_id}     // _require('client_id required'),
+        clientSecret => $args{client_secret} // _require('client_secret required'),
+        $args{scopes}           ? (scopes          => $args{scopes})           : (),
+        $args{provider_options} ? (providerOptions => $args{provider_options}) : (),
+    });
+}
+
+sub create_gitlab_self_hosted_idp {
+    my ($self, %args) = @_;
+    $self->_post('/idps/gitlab_self_hosted', {
+        issuer       => $args{issuer}       // _require('issuer required'),
+        name         => $args{name}         // _require('name required'),
+        clientId     => $args{client_id}     // _require('client_id required'),
+        clientSecret => $args{client_secret} // _require('client_secret required'),
+        $args{scopes}           ? (scopes          => $args{scopes})           : (),
+        $args{provider_options} ? (providerOptions => $args{provider_options}) : (),
+    });
+}
+
+sub create_apple_idp {
+    my ($self, %args) = @_;
+    $self->_post('/idps/apple', {
+        $args{name}             ? (name            => $args{name})             : (),
+        clientId     => $args{client_id}     // _require('client_id required'),
+        teamId       => $args{team_id}       // _require('team_id required'),
+        keyId        => $args{key_id}        // _require('key_id required'),
+        privateKey   => encode_base64($args{private_key} // _require('private_key required'), ''),
+        $args{scopes}           ? (scopes          => $args{scopes})           : (),
+        $args{provider_options} ? (providerOptions => $args{provider_options}) : (),
+    });
+}
+
+sub create_ldap_idp {
+    my ($self, %args) = @_;
+    $self->_post('/idps/ldap', {
+        name               => $args{name}                 // _require('name required'),
+        servers            => $args{servers}              // _require('servers required'),
+        $args{start_tls}         ? (startTls             => $args{start_tls})         : (),
+        baseDn             => $args{base_dn}             // _require('base_dn required'),
+        bindDn             => $args{bind_dn}             // _require('bind_dn required'),
+        bindPassword       => $args{bind_password}       // _require('bind_password required'),
+        userBase           => $args{user_base}            // _require('user_base required'),
+        userObjectClasses  => $args{user_object_classes}  // _require('user_object_classes required'),
+        userFilters        => $args{user_filters}         // _require('user_filters required'),
+        $args{timeout}          ? (timeout             => $args{timeout})            : (),
+        $args{attributes}       ? (attributes           => $args{attributes})       : (),
+        $args{provider_options} ? (providerOptions       => $args{provider_options}) : (),
+        $args{root_ca}          ? (rootCa               => encode_base64($args{root_ca}, '')) : (),
     });
 }
 
@@ -588,12 +867,23 @@ __END__
     my $orgs = $mgmt->list_orgs;
     $mgmt->update_org(name => 'Acme Corp');
     $mgmt->deactivate_org;
+    $mgmt->reactivate_org;
+    $mgmt->add_org_domain('example.com');
+    $mgmt->generate_org_domain_validation('example.com', type => 'DOMAIN_VALIDATION_TYPE_HTTP');
+    $mgmt->validate_org_domain('example.com');
+    $mgmt->set_primary_org_domain('example.com');
+    my $domains = $mgmt->list_org_domains;
 
     # Roles
     $mgmt->add_project_role($project_id,
         role_key     => 'admin',
         display_name => 'Administrator',
     );
+    $mgmt->update_project_role($project_id, 'admin',
+        display_name => 'Administrator',
+        group        => 'Admins',
+    );
+    $mgmt->remove_project_role($project_id, 'admin');
 
     # User Grants (assign roles)
     $mgmt->create_user_grant(
@@ -601,6 +891,10 @@ __END__
         project_id => $project_id,
         role_keys  => ['admin'],
     );
+    $mgmt->update_user_grant($user_id, $grant_id, role_keys => ['admin', 'editor']);
+    $mgmt->deactivate_user_grant($user_id, $grant_id);
+    $mgmt->reactivate_user_grant($user_id, $grant_id);
+    $mgmt->delete_user_grant($user_id, $grant_id);
 
     # Identity Providers
     my $idp = $mgmt->create_oidc_idp(
@@ -611,6 +905,22 @@ __END__
     );
     $mgmt->activate_idp($idp->{idp}{id});
     my $idps = $mgmt->list_idps;
+
+    # Typed identity providers (Google, GitHub, Azure AD, ...)
+    my $google = $mgmt->create_google_idp(
+        client_id     => $client_id,
+        client_secret => $client_secret,
+    );
+    my $saml_app = $mgmt->create_saml_app($project_id,
+        name         => 'SAML Client',
+        metadata_url => 'https://idp.example.com/saml/metadata',
+    );
+    my $api_app = $mgmt->create_api_app($project_id, name => 'API Client');
+
+    # User lifecycle
+    $mgmt->lock_user($user_id);
+    $mgmt->unlock_user($user_id);
+    $mgmt->resend_email_verification($user_id);
 
 =head1 DESCRIPTION
 
@@ -668,10 +978,16 @@ connections across both OIDC and Management clients:
 
 =method reactivate_user
 
+=method lock_user
+
+=method unlock_user
+
 =method delete_user
 
-Human user CRUD operations. C<create_human_user> requires C<user_name>,
-C<first_name>, C<last_name>, and C<email>.
+Human user CRUD and lifecycle operations. C<create_human_user> requires
+C<user_name>, C<first_name>, C<last_name>, and C<email>. C<lock_user> and
+C<unlock_user> toggle the locked state (distinct from deactivation: a locked
+user cannot log in but is not removed).
 
 =method create_service_user
 
@@ -697,7 +1013,11 @@ an optional C<type> (default C<KEY_TYPE_JSON>) and C<expiration_date>.
 
 =method request_password_reset
 
-Password operations. C<set_password> requires C<user_id> and C<password>.
+=method resend_email_verification
+
+Password and verification operations. C<set_password> requires C<user_id>
+and C<password>. C<resend_email_verification> re-sends the email verification
+notification for a user.
 
 =method set_user_metadata
 
@@ -728,15 +1048,29 @@ Project CRUD operations. C<create_project> requires C<name>.
 
 =method update_oidc_app
 
+=method create_saml_app
+
+=method update_saml_app
+
+=method create_api_app
+
 =method delete_app
 
-OIDC application management within a project. C<create_oidc_app> requires
+Application management within a project. C<create_oidc_app> requires
 C<project_id>, C<name>, and C<redirect_uris>.
 
 C<update_oidc_app> accepts the same snake_case keys as C<create_oidc_app>:
 C<redirect_uris>, C<response_types>, C<grant_types>, C<app_type>,
 C<auth_method>, C<post_logout_uris>, C<dev_mode>, C<access_token_type>,
 C<id_token_role_assertion>, C<additional_origins>.
+
+C<create_saml_app> requires C<project_id>, C<name>, and exactly one of
+C<metadata_xml> (raw SAML metadata XML, base64-encoded for you) or
+C<metadata_url>; optionally accepts C<login_version>. C<update_saml_app>
+takes the same metadata and C<login_version> arguments.
+
+C<create_api_app> requires C<project_id> and C<name>; optionally accepts
+C<auth_method> (defaulting to the API auth method type server-side).
 
 =method get_org
 
@@ -750,27 +1084,87 @@ Returns the current organization of the authenticated user.
 
 =method deactivate_org
 
-Organization operations. C<create_org> and C<update_org> require C<name>.
+=method reactivate_org
+
+=method add_org_domain
+
+=method generate_org_domain_validation
+
+=method validate_org_domain
+
+=method set_primary_org_domain
+
+=method list_org_domains
+
+=method remove_org_domain
+
+Organization and domain operations. C<create_org> and C<update_org> require
+C<name>. C<reactivate_org> re-activates a deactivated organization.
+
+Domain verification is a two-step challenge/token flow: first
+C<generate_org_domain_validation($domain, type =E<gt> ...)> requests a
+validation token (C<type> is C<DOMAIN_VALIDATION_TYPE_HTTP> or
+C<DOMAIN_VALIDATION_TYPE_DNS>); once the challenge is published, call
+C<validate_org_domain($domain)> to confirm it. C<set_primary_org_domain>
+makes a verified domain the primary one. C<add_org_domain>, C<remove_org_domain>,
+and C<set_primary_org_domain> take the domain string positionally;
+C<list_org_domains> accepts C<offset>, C<limit>, and C<queries>.
 
 =method add_project_role
 
 =method list_project_roles
 
+=method update_project_role
+
+=method remove_project_role
+
 Manage project roles. C<add_project_role> requires C<project_id> and
-C<role_key>.
+C<role_key>. C<update_project_role> requires C<project_id>, C<role_key>,
+and C<display_name> (per the ZITADEL API it is mandatory); optionally
+accepts C<group>. C<remove_project_role> deletes a role by key.
 
 =method create_user_grant
 
 =method list_user_grants
 
-Assign roles to users. C<create_user_grant> requires C<user_id>,
-C<project_id>, and C<role_keys> (arrayref).
+=method update_user_grant
+
+=method deactivate_user_grant
+
+=method reactivate_user_grant
+
+=method delete_user_grant
+
+Assign roles to users and manage the grant lifecycle. C<create_user_grant>
+requires C<user_id>, C<project_id>, and C<role_keys> (arrayref).
+C<update_user_grant($user_id, $grant_id, role_keys =E<gt> [...])> replaces
+the roles on an existing grant. C<deactivate_user_grant> /
+C<reactivate_user_grant> toggle grant state; C<delete_user_grant> removes
+it. All take C<user_id> and C<grant_id> positionally.
 
 =method list_idps
 
 =method get_idp
 
 =method create_oidc_idp
+
+=method create_jwt_idp
+
+=method create_google_idp
+
+=method create_azuread_idp
+
+=method create_github_idp
+
+=method create_github_enterprise_idp
+
+=method create_gitlab_idp
+
+=method create_gitlab_self_hosted_idp
+
+=method create_apple_idp
+
+=method create_ldap_idp
 
 =method update_idp
 
@@ -780,10 +1174,51 @@ C<project_id>, and C<role_keys> (arrayref).
 
 =method deactivate_idp
 
-Identity provider management. C<create_oidc_idp> requires C<name>,
+Identity provider management. C<create_oidc_idp> (the legacy
+C<CreateOIDCIDp> endpoint at C<POST /idps/oidc>) requires C<name>,
 C<client_id>, C<client_secret>, and C<issuer>. Optional: C<scopes>
 (default C<["openid","profile","email"]>), C<display_name_mapping>,
 C<username_mapping>, C<auto_register>.
+
+The typed C<create_*_idp> methods target the newer C<Add*Provider>
+endpoints (C<POST /idps/<type>>) and use a different option shape: they take
+a C<provider_options> hashref (the ZITADEL C<Options> message:
+C<isCreationAllowed>, C<isAutoCreation>, C<isAutoUpdate>,
+C<isLinkingAllowed>, C<autoLinking>) rather than the flat mapping fields of
+C<create_oidc_idp>. Required fields per type:
+
+C<create_jwt_idp> (C</idps/generic_jwt>): C<name>, C<issuer>,
+C<jwt_endpoint>, C<keys_endpoint>, C<header_name>; optional C<audience>.
+
+C<create_google_idp> (C</idps/google>), C<create_github_idp>
+(C</idps/github>), C<create_gitlab_idp> (C</idps/gitlab>): C<client_id>,
+C<client_secret>; C<name> optional (defaults to the provider name
+server-side); optional C<scopes>.
+
+C<create_azuread_idp> (C</idps/azure>): C<name>, C<client_id>,
+C<client_secret>; the C<tenant> oneof may be supplied as C<tenant>
+(pass-through hashref), C<tenant_id>, or C<tenant_type>; optional
+C<email_verified>, C<scopes>.
+
+C<create_github_enterprise_idp> (C</idps/github_es>): C<client_id>,
+C<name>, C<client_secret>, C<authorization_endpoint>, C<token_endpoint>,
+C<user_endpoint>; optional C<scopes>.
+
+C<create_gitlab_self_hosted_idp> (C</idps/gitlab_self_hosted>): C<issuer>,
+C<name>, C<client_id>, C<client_secret>; optional C<scopes>.
+
+C<create_apple_idp> (C</idps/apple>): C<client_id>, C<team_id>,
+C<key_id>, C<private_key> (raw bytes, base64-encoded for you); C<name>
+optional; optional C<scopes>.
+
+C<create_ldap_idp> (C</idps/ldap>): C<name>, C<servers> (arrayref),
+C<base_dn>, C<bind_dn>, C<bind_password>, C<user_base>,
+C<user_object_classes> (arrayref), C<user_filters> (arrayref); optional
+C<start_tls>, C<timeout> (a protobuf C<Duration> string like C<"5s">),
+C<attributes> (pass-through C<LDAPAttributes> hashref in native camelCase),
+C<root_ca> (raw PEM bytes, base64-encoded for you).
+
+All typed providers accept the optional C<provider_options> hashref.
 
 =head1 SEE ALSO
 

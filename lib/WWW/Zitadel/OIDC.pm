@@ -6,7 +6,6 @@ use Moo;
 use Crypt::JWT qw(decode_jwt);
 use JSON::MaybeXS qw(decode_json);
 use LWP::UserAgent;
-use URI;
 use WWW::Zitadel::Error;
 use namespace::clean;
 

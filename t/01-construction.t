@@ -96,4 +96,33 @@ throws_ok { $mgmt->get_app('p', undef) } qr/app_id required/, 'get_app needs app
     is "$val", 'user_id required', 'Validation error stringifies';
 }
 
+# Facade shares its ua with lazy-built oidc and management sub-clients.
+{
+    my $z = WWW::Zitadel->new(
+        issuer => 'https://zitadel.example.com',
+        token  => 'pat-token',
+    );
+    isa_ok $z->ua, 'LWP::UserAgent', 'facade has a ua';
+
+    # Sub-clients are lazy — accessing them builds them with the shared ua.
+    my $facade_ua = $z->ua;
+    is $z->oidc->ua, $facade_ua, 'oidc shares the facade ua (same refaddr)';
+    is $z->management->ua, $facade_ua, 'management shares the facade ua (same refaddr)';
+}
+
+# An explicitly passed ua is respected by the facade and propagated to sub-clients.
+{
+    my $my_ua = LWP::UserAgent->new(timeout => 99);
+
+    my $z = WWW::Zitadel->new(
+        issuer => 'https://zitadel.example.com',
+        token  => 'pat-token',
+        ua     => $my_ua,
+    );
+
+    is $z->ua, $my_ua, 'explicitly passed ua is used by the facade';
+    is $z->oidc->ua, $my_ua, 'oidc receives the explicit ua';
+    is $z->management->ua, $my_ua, 'management receives the explicit ua';
+}
+
 done_testing;

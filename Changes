@@ -1,6 +1,44 @@
 Revision history for WWW-Zitadel
 
 {{$NEXT}}
+    - WWW::Zitadel facade now shares a single LWP::UserAgent across the
+      lazy-built `oidc` and `management` sub-clients (connection pooling).
+      New `ua` attribute lets callers inject a customized agent; the README
+      promise that the facade "automatically shares one UA" is now true.
+    - Removed dead `use URI;` import from WWW::Zitadel::OIDC and the
+      corresponding unused `requires 'URI';` from cpanfile.
+    - Declared `MIME::Base64` in cpanfile (used by Management metadata
+      methods; core module, now explicitly required).
+    - New Management API v1 endpoints (28 methods), paths verified against the
+      official ZITADEL docs and the management/v2 proto definitions:
+      - User Grants lifecycle: `update_user_grant`, `deactivate_user_grant`,
+        `reactivate_user_grant`, `delete_user_grant`
+      - Typed identity providers (Add*Provider endpoints, `providerOptions`
+        shape): `create_jwt_idp` (`/idps/generic_jwt`), `create_google_idp`,
+        `create_azuread_idp` (`/idps/azure`), `create_github_idp`,
+        `create_github_enterprise_idp` (`/idps/github_es`), `create_gitlab_idp`,
+        `create_gitlab_self_hosted_idp`, `create_apple_idp` (private_key
+        base64-encoded), `create_ldap_idp` (root_ca base64-encoded)
+      - Project roles: `update_project_role`, `remove_project_role`
+      - Applications: `create_saml_app` (metadata_xml base64-encoded or
+        metadata_url), `update_saml_app`, `create_api_app`
+      - Organization domains (two-step challenge/token verification):
+        `add_org_domain`, `generate_org_domain_validation`,
+        `validate_org_domain`, `set_primary_org_domain`, `list_org_domains`,
+        `remove_org_domain`
+      - User lifecycle: `lock_user`, `unlock_user`,
+        `resend_email_verification`; `reactivate_org` (mirror of
+        `deactivate_org`)
+    - Test coverage expanded from 228 to 384 tests:
+      - `create_project` path/payload/camelCase-option mapping + validation
+      - `create_human_user` optional profile/email/phone/password fields
+      - `update_user` display_name/nick_name mapping
+      - `create_project`/`update_project` camelCase options
+      - `WWW::Zitadel::Error` added to `t/00-load.t`
+      - Facade UA-sharing behavior (`ua` shared with oidc + management;
+        explicit `ua` respected)
+      - All 28 new Management methods: paths, snake_case->camelCase mappings,
+        base64 encodings, `providerOptions` nesting, required-arg validation
 
 0.001     2026-03-14 05:01:20Z
     - Bug fixes:

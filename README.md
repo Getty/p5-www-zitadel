@@ -434,7 +434,8 @@ examples/bootstrap_project.pl
 ### `WWW::Zitadel::Management`
 
 - Users: `list_users`, `get_user`, `create_human_user`, `update_user`,
-  `deactivate_user`, `reactivate_user`, `delete_user`
+  `deactivate_user`, `reactivate_user`, `lock_user`, `unlock_user`,
+  `delete_user`, `resend_email_verification`
 - Passwords: `set_password`, `request_password_reset`
 - Metadata: `set_user_metadata`, `get_user_metadata`, `list_user_metadata`
 - Service users: `create_service_user`, `list_service_users`,
@@ -443,12 +444,20 @@ examples/bootstrap_project.pl
 - Projects: `list_projects`, `get_project`, `create_project`,
   `update_project`, `delete_project`
 - Apps: `list_apps`, `get_app`, `create_oidc_app`, `update_oidc_app`,
-  `delete_app`
-- Orgs: `get_org`, `create_org`, `list_orgs`, `update_org`, `deactivate_org`
-- Roles: `add_project_role`, `list_project_roles`
-- Grants: `create_user_grant`, `list_user_grants`
-- IDPs: `create_oidc_idp`, `list_idps`, `get_idp`, `update_idp`,
-  `delete_idp`, `activate_idp`, `deactivate_idp`
+  `create_saml_app`, `update_saml_app`, `create_api_app`, `delete_app`
+- Orgs: `get_org`, `create_org`, `list_orgs`, `update_org`, `deactivate_org`,
+  `reactivate_org`, `add_org_domain`, `generate_org_domain_validation`,
+  `validate_org_domain`, `set_primary_org_domain`, `list_org_domains`,
+  `remove_org_domain`
+- Roles: `add_project_role`, `list_project_roles`, `update_project_role`,
+  `remove_project_role`
+- Grants: `create_user_grant`, `list_user_grants`, `update_user_grant`,
+  `deactivate_user_grant`, `reactivate_user_grant`, `delete_user_grant`
+- IDPs: `create_oidc_idp`, `create_jwt_idp`, `create_google_idp`,
+  `create_azuread_idp`, `create_github_idp`, `create_github_enterprise_idp`,
+  `create_gitlab_idp`, `create_gitlab_self_hosted_idp`, `create_apple_idp`,
+  `create_ldap_idp`, `list_idps`, `get_idp`, `update_idp`, `delete_idp`,
+  `activate_idp`, `deactivate_idp`
 
 ### `WWW::Zitadel::Error`
 

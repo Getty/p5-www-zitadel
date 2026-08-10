@@ -3,6 +3,7 @@ package WWW::Zitadel;
 # ABSTRACT: Perl client for Zitadel identity management (OIDC + Management API)
 
 use Moo;
+use LWP::UserAgent;
 use WWW::Zitadel::OIDC;
 use WWW::Zitadel::Management;
 use WWW::Zitadel::Error;
@@ -27,10 +28,16 @@ has token => (
     doc => 'Personal Access Token for Management API',
 );
 
+has ua => (
+    is      => 'lazy',
+    builder => sub { LWP::UserAgent->new(timeout => 30) },
+);
+
 has oidc => (
     is      => 'lazy',
     builder => sub {
-        WWW::Zitadel::OIDC->new(issuer => $_[0]->issuer);
+        my $self = shift;
+        WWW::Zitadel::OIDC->new(issuer => $self->issuer, ua => $self->ua);
     },
 );
 
@@ -44,6 +51,7 @@ has management => (
         WWW::Zitadel::Management->new(
             base_url => $self->issuer,
             token    => $self->token,
+            ua       => $self->ua,
         );
     },
 );
@@ -100,6 +108,18 @@ Required issuer URL, for example C<https://zitadel.example.com>.
 
 Optional Personal Access Token (PAT). Required only when using
 L</management>.
+
+=attr ua
+
+Lazy-built L<LWP::UserAgent> instance (default timeout 30s), shared
+between L</oidc> and L</management> so both sub-clients reuse the same
+HTTP connection pool. Pass your own instance to customize the agent:
+
+    my $z = WWW::Zitadel->new(
+        issuer => $issuer,
+        token  => $pat,
+        ua     => $my_custom_ua,
+    );
 
 =attr oidc
 
