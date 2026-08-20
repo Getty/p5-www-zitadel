@@ -7,7 +7,7 @@ briefing:
   skills:
     - www-zitadel-perl
     - zitadel-general
-    - karr
+    - kanban-issues-karr-cli
 ---
 
 You are the www-zitadel-test-writer.

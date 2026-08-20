@@ -1,6 +1,6 @@
 ---
 name: zitadel-general
-description: "General ZITADEL workflow for HI integration and WWW::Zitadel maintenance (OIDC, Management API, tests, k8s live checks)"
+description: Use when working on ZITADEL itself for HI integration or WWW::Zitadel maintenance — OIDC, the Management API, tests, live checks on Kubernetes.
 user-invocable: true
 allowed-tools: Read, Grep, Glob, Bash
 model: sonnet

@@ -5,10 +5,10 @@ model: sonnet
 allowed-tools: Read, Bash, Glob, Grep
 briefing:
   skills:
-    - perl-release-author-getty
+    - getty-perl-release-author-getty
     - perl-release-dist-ini
     - www-zitadel-perl
-    - karr
+    - kanban-issues-karr-cli
 ---
 
 You are the www-zitadel-release-checker for **WWW-Zitadel**. Conventions from the skills above are non-negotiable — apply silently.

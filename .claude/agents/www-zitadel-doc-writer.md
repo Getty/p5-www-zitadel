@@ -6,7 +6,7 @@ allowed-tools: Read, Edit, Grep, Glob
 briefing:
   skills:
     - www-zitadel-perl
-    - perl-release-author-getty
+    - getty-perl-release-author-getty
 ---
 
 You are the www-zitadel-doc-writer for **WWW-Zitadel**.

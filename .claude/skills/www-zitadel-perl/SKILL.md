@@ -1,6 +1,6 @@
 ---
 name: www-zitadel-perl
-description: "Usage guide for WWW::Zitadel Perl client (OIDC, Management API, token flows, tests)"
+description: Use when talking to ZITADEL from Perl — WWW::Zitadel for OIDC, the Management API, token flows, and its tests.
 user-invocable: true
 allowed-tools: Read, Grep, Glob, Bash
 model: sonnet

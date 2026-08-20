@@ -7,10 +7,10 @@ briefing:
   skills:
     - www-zitadel-perl
     - zitadel-general
-    - perl-moo
+    - getty-perl-moo
     - perl-release-dist-ini
-    - perl-release-author-getty
-    - karr
+    - getty-perl-release-author-getty
+    - kanban-issues-karr-cli
 ---
 
 You are the www-zitadel-worker for **WWW-Zitadel**, the Perl client for Zitadel identity management (OIDC discovery/JWKS/token-verify + Management API v1) in `lib/WWW/Zitadel/`.
