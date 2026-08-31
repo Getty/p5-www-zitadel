@@ -46,7 +46,7 @@ Pure prose docs and `Changes` notes are not.
 ## Coordination — karr board
 
 Ticket coordination is the orchestrating agent's job, so `karr` is always in scope —
-don't invoke the `karr` skill first, just use it. Git-native kanban; state lives in
+don't invoke the `kanban-issues-karr-cli` skill first, just use it. Git-native kanban; state lives in
 `refs/karr/*`; this repo has its own board.
 
 - `karr list --compact` / `karr board` — open work · `karr show ID` — detail
@@ -90,6 +90,6 @@ explicitly says to handle a specific issue.
 ## Perl specifics — reference, don't restate
 
 Module loading, Moo patterns, dependency pinning, `[@Author::GETTY]` release metadata,
-POD directives, and house style live in skills `perl-moo`, `perl-release-dist-ini`,
-`perl-release-author-getty`, and `www-zitadel-perl` (force-loaded for `www-zitadel-*`
+POD directives, and house style live in skills `getty-perl-moo`, `perl-release-dist-ini`,
+`getty-perl-release-author-getty`, and `www-zitadel-perl` (force-loaded for `www-zitadel-*`
 agents). Do not duplicate that content here.
