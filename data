@@ -1,0 +1,18 @@
+---
+class: standard
+completed: 2026-09-09T10:23:49Z
+created: 2026-08-09T02:13:34Z
+id: 2
+priority: medium
+started: 2026-09-09T10:23:26Z
+status: done
+tags:
+- sync
+- parity
+title: Verify sync/async API parity with p5-net-async-zitadel
+updated: 2026-09-09T10:23:49Z
+---
+
+Confirm the WWW::Zitadel::Management and ::OIDC public API surface matches Net::Async::Zitadel (method_f suffixes, Futures). Any drift becomes a ticket against p5-net-async-zitadel.
+
+2026-09-09 10:23 Verified WWW::Zitadel vs Net::Async::Zitadel public API parity (read-only, both dists in ~/dev). FACADE: parity holds - sync ua (LWP::UserAgent) and async http (Net::Async::HTTP) are both lazy and threaded to oidc+management; both expose issuer/token/oidc/management, so ticket 3 facade ua-equivalent is effectively already present on async (named http). OIDC: parity on all 9 IO methods (discovery/jwks/verify_token/userinfo/introspect/token/client_credentials_token/refresh_token/exchange_authorization_code have _f twins); sync additionally has 5 pure endpoint-accessor helpers (jwks_uri, token_endpoint, userinfo_endpoint, authorization_endpoint, introspection_endpoint) with no _f, likely intentional (async callers use discovery_f). MANAGEMENT: DRIFT - async missing _f twins for ~30 sync methods, exactly ticket 3 four groups: (1) user grants lifecycle update/deactivate/reactivate/delete_user_grant; (2) idp types create_jwt/google/azuread/github/github_enterprise/gitlab/gitlab_self_hosted/apple/ldap_idp; (3) project roles update_project_role/remove_project_role + create_saml_app/update_saml_app/create_api_app; (4) org domains add/generate_validation/validate/set_primary/list/remove_org_domain + reactivate_org + lock_user/unlock_user/resend_email_verification. Drift already tracked by ticket 3. Did NOT modify or file tickets on p5-net-async-zitadel (outside the 7 assigned repos). Verification only, no code change.
