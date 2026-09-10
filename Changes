@@ -39,6 +39,11 @@ Revision history for WWW-Zitadel
         explicit `ua` respected)
       - All 28 new Management methods: paths, snake_case->camelCase mappings,
         base64 encodings, `providerOptions` nesting, required-arg validation
+    - Packaging:
+      - Added a committed `LICENSE` file (Perl_5), as expected by the
+        `[@Author::GETTY]` LicenseFile check; the repository now reports its
+        license
+      - `dist.ini`: added `copyright_year` for `[@Author::GETTY]`
 
 0.001     2026-03-14 05:01:20Z
     - Bug fixes:
