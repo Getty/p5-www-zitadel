@@ -1,0 +1,20 @@
+---
+claimed_at: 2026-09-10T03:48:16Z
+claimed_by: worker-c
+class: standard
+completed: 2026-09-10T03:48:16Z
+created: 2026-08-09T02:13:28Z
+id: 1
+priority: high
+started: 2026-09-10T03:45:00Z
+status: done
+tags:
+- release
+- changes
+title: Prepare 0.002 CPAN release
+updated: 2026-09-10T03:48:16Z
+---
+
+$VERSION is 0.002 and Changes has an empty {{$NEXT}} section. Fill it from git log 0.001..HEAD (version bump, skill reorg, dist.ini/gitignore standardization), run dzil build clean, then www-zitadel-release-checker. Release only on maintainer go-ahead.
+
+Release-prep complete (worker-c, commit 08d3608). {{$NEXT}} already covered the 0.002 code; added Packaging notes (committed LICENSE, dist.ini copyright_year) as the only other dist changes since 0.001 tag. Internal .claude/karr/skill churn deliberately excluded from CPAN changelog. Audit vs release skills: prove -lr t PASS 384; dzil test PASS 388 (author-pod ok, live/k8s skipped); dzil build clean then dzil clean. cpanfile prereqs complete (all used modules declared); VERSION 0.002 consistent across all 4 modules; LICENSE matches holder/year (Perl_5, 2026, Raudssus). Findings (non-blocking): (1) Error.pm 4 packages / versionless sub-classes -> ticket #4; (2) tarball ships .claude/, CLAUDE.md, k8s/, script/deploy-k8s-zitadel.sh -- packaging noise for CPAN consumers, maintainer to decide on pruning; (3) script/ holds a shell helper (not a bin/ Perl exe) -- fine as-is. Dist is release-ready for 0.002. NO release performed -- awaits maintainer go-ahead.
