@@ -1,0 +1,19 @@
+---
+claimed_at: 2026-09-14T05:08:56Z
+claimed_by: opus-hub
+class: standard
+created: 2026-09-10T03:47:43Z
+id: 4
+priority: medium
+started: 2026-09-14T05:08:56Z
+status: review
+tags:
+- release
+- refactor
+title: 'Error.pm: one package per file (versionless sub-classes)'
+updated: 2026-09-14T05:08:56Z
+---
+
+lib/WWW/Zitadel/Error.pm defines 4 packages (Error, Error::Validation, Error::Network, Error::API). Only the first has our $VERSION; the three sub-classes are versionless in code. dzil build/test warns: "3 provide map entries did not map to .pm files". Per getty-perl-release-author-getty, one package per file: BumpVersionAfterRelease rewrites only the first $VERSION, so a manual per-package $VERSION would freeze while META bumps -> silent code/META disagreement. Correct fix = split into Error/Validation.pm, Error/Network.pm, Error/API.pm and update t/00-load.t. Pre-existing since 0.001 (not a 0.002 regression), non-blocking. NOTE: mirror the split in async twin p5-net-async-zitadel.
+
+Split in Error/{Validation,Network,API}.pm, Basis laedt sie weiter (rueckwaertskompat). prove -lr t gruen (387), dzil build warnungsfrei. Commit a95d6fd. Mirror im async-Twin folgt.
