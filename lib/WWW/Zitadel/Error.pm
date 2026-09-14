@@ -1,6 +1,6 @@
 package WWW::Zitadel::Error;
 
-# ABSTRACT: Structured exception classes for WWW::Zitadel
+# ABSTRACT: Structured exception base class for WWW::Zitadel
 
 use Moo;
 
@@ -23,42 +23,14 @@ has message => (
     required => 1,
 );
 
-package WWW::Zitadel::Error::Validation;
-
-# ABSTRACT: Raised when a required argument is missing or invalid
-
-use Moo;
-extends 'WWW::Zitadel::Error';
-use namespace::clean;
-
-package WWW::Zitadel::Error::Network;
-
-# ABSTRACT: Raised when an HTTP request fails at the transport level
-
-use Moo;
-extends 'WWW::Zitadel::Error';
-use namespace::clean;
-
-package WWW::Zitadel::Error::API;
-
-# ABSTRACT: Raised when the ZITADEL API returns a non-successful HTTP response
-
-use Moo;
-extends 'WWW::Zitadel::Error';
-use namespace::clean;
-
-=attr http_status
-
-The HTTP status line returned by the server, e.g. C<"400 Bad Request">.
-
-=attr api_message
-
-The C<message> field from the JSON error body returned by the API, if present.
-
-=cut
-
-has http_status => ( is => 'ro' );
-has api_message => ( is => 'ro' );
+# Concrete subclasses live one-per-file (Error/Validation.pm, Error/Network.pm,
+# Error/API.pm). Load them here so `use WWW::Zitadel::Error` still pulls in the
+# whole family — every caller only ever `use`s this module, then references
+# ::Validation / ::Network / ::API. Required at runtime, after the base class is
+# defined, so each subclass's `extends 'WWW::Zitadel::Error'` resolves cleanly.
+require WWW::Zitadel::Error::Validation;
+require WWW::Zitadel::Error::Network;
+require WWW::Zitadel::Error::API;
 
 1;
 
@@ -84,21 +56,23 @@ __END__
 
 =head1 DESCRIPTION
 
-Three exception classes, all inheriting from C<WWW::Zitadel::Error>:
+C<WWW::Zitadel::Error> is the exception base class. Loading it also loads its
+three concrete subclasses, each of which C<extends> this class and inherits the
+stringification overload:
 
 =over 4
 
-=item C<WWW::Zitadel::Error::Validation>
+=item L<WWW::Zitadel::Error::Validation>
 
 Thrown when a required argument is missing or invalid (empty issuer, missing
 user_id, etc.).
 
-=item C<WWW::Zitadel::Error::Network>
+=item L<WWW::Zitadel::Error::Network>
 
 Thrown when a discovery, JWKS, or other HTTP fetch fails at the transport level
 (connection refused, timeout, non-success response on OIDC endpoints).
 
-=item C<WWW::Zitadel::Error::API>
+=item L<WWW::Zitadel::Error::API>
 
 Thrown when the Management API returns a non-2xx response. Carries
 C<http_status> (the status line string) and C<api_message> (the C<message>

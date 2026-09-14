@@ -1,6 +1,10 @@
 Revision history for WWW-Zitadel
 
 {{$NEXT}}
+    - Split WWW::Zitadel::Error into one package per file (Error/Validation.pm,
+      Error/Network.pm, Error/API.pm); the base module still loads all three,
+      so `use WWW::Zitadel::Error` is unchanged for callers. Clears the dzil
+      "provide map entries did not map to .pm files" warning.
     - WWW::Zitadel facade now shares a single LWP::UserAgent across the
       lazy-built `oidc` and `management` sub-clients (connection pooling).
       New `ua` attribute lets callers inject a customized agent; the README
