@@ -5,7 +5,7 @@ model: inherit
 allowed-tools: Read, Edit, Write, Bash, Glob, Grep
 briefing:
   skills:
-    - www-zitadel-perl
+    - www-zitadel-core
     - zitadel-general
     - getty-perl-moo
     - perl-release-dist-ini

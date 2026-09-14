@@ -5,7 +5,7 @@ model: sonnet
 allowed-tools: Read, Edit, Write, Bash, Glob, Grep
 briefing:
   skills:
-    - www-zitadel-perl
+    - www-zitadel-core
     - zitadel-general
     - kanban-issues-karr-cli
 ---

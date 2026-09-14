@@ -5,7 +5,7 @@ model: sonnet
 allowed-tools: Read, Edit, Grep, Glob
 briefing:
   skills:
-    - www-zitadel-perl
+    - www-zitadel-core
     - getty-perl-release-author-getty
 ---
 

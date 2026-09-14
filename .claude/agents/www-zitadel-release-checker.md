@@ -7,7 +7,7 @@ briefing:
   skills:
     - getty-perl-release-author-getty
     - perl-release-dist-ini
-    - www-zitadel-perl
+    - www-zitadel-core
     - kanban-issues-karr-cli
 ---
 

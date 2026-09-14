@@ -91,5 +91,5 @@ explicitly says to handle a specific issue.
 
 Module loading, Moo patterns, dependency pinning, `[@Author::GETTY]` release metadata,
 POD directives, and house style live in skills `getty-perl-moo`, `perl-release-dist-ini`,
-`getty-perl-release-author-getty`, and `www-zitadel-perl` (force-loaded for `www-zitadel-*`
+`getty-perl-release-author-getty`, and `www-zitadel-core` (force-loaded for `www-zitadel-*`
 agents). Do not duplicate that content here.

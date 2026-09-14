@@ -1,5 +1,5 @@
 ---
-name: www-zitadel-perl
+name: www-zitadel-core
 description: Use when talking to ZITADEL from Perl — WWW::Zitadel for OIDC, the Management API, token flows, and its tests.
 user-invocable: true
 allowed-tools: Read, Grep, Glob, Bash
