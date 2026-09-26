@@ -2,7 +2,6 @@
 name: www-zitadel-worker
 description: "Default WWW-Zitadel worker — implement, refactor, debug, and test the Zitadel Perl client (OIDC discovery/JWKS/verify + Management API v1) in lib/WWW/Zitadel/*. Pre-loaded with the client conventions, [@Author::GETTY] release-metadata rules, and the sync/async sibling invariant. Do NOT edit p5-net-async-zitadel from here — ticket it. Leaves a commit-ready tree; never commits — commits belong to www-zitadel-release-manager."
 model: inherit
-allowed-tools: Read, Edit, Write, Bash, Glob, Grep
 briefing:
   skills:
     - www-zitadel-core
