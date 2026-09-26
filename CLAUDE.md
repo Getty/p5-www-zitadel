@@ -17,7 +17,7 @@ principle and lane are in `.claude/rules/www-zitadel-rules.md`.
 |---|---|
 | Implement / refactor / debug behavior-relevant code | `www-zitadel-worker` (default) |
 | Write/extend tests | `www-zitadel-test-writer` |
-| Pre-release audit | `www-zitadel-release-checker` |
+| Commits, `Changes`, card → done, pre-release audit | `www-zitadel-release-manager` |
 | Write/maintain POD | `www-zitadel-doc-writer` |
 
 The agents carry their skills via `briefing.skills` (see `.claude/agents/`); the main

@@ -7,7 +7,7 @@ briefing:
   skills:
     - www-zitadel-core
     - zitadel-general
-    - kanban-issues-karr-cli
+    - kanban-issues-karr-ticket
 ---
 
 You are the www-zitadel-test-writer.
