@@ -1,0 +1,20 @@
+---
+class: standard
+created: 2026-10-06T19:19:12Z
+id: 7
+priority: low
+status: backlog
+tags:
+- bug
+- management
+- review-2026-10-06
+title: 'Management: ids are interpolated into the URL path unescaped'
+updated: 2026-10-06T19:19:12Z
+---
+
+`lib/WWW/Zitadel/Management.pm` builds every path by string interpolation, e.g. `$self->_get("/users/$user_id")` (line 111), `_put("/users/$user_id/profile", ...)` (line 142); the file contains no `uri_escape` at all. Zitadel's own ids are numeric, but metadata keys, domain names (`add_org_domain`/`remove_org_domain`), role keys (`update_project_role`/`remove_project_role`) and grant ids are caller-supplied strings. A value with `/`, `?`, `#` or a space changes which endpoint is called (`remove_project_role($project, 'a/../..')`) or produces a malformed request instead of a clean 404.
+
+Done: one `_esc` helper (`URI::Escape::uri_escape_utf8`) applied to every interpolated path segment; a test with a key containing `/` and a space asserts the escaped path. Same change in p5-net-async-zitadel.
+
+---
+Fleet review 2026-10-06 · kind: bug · confidence: verified
