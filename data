@@ -1,0 +1,13 @@
+{"action":"move","agent":"p5-www-zitadel","detail":"in-progress","task_id":2,"ts":"2026-09-09T10:23:26Z"}
+{"action":"edit","agent":"p5-www-zitadel","detail":"in-progress","task_id":2,"ts":"2026-09-09T10:23:39Z"}
+{"action":"edit","agent":"Torsten Raudssus","detail":"in-progress","task_id":2,"ts":"2026-09-09T10:23:45Z"}
+{"action":"move","agent":"Torsten Raudssus","detail":"done","task_id":2,"ts":"2026-09-09T10:23:49Z"}
+{"action":"move","agent":"worker-c","detail":"in-progress","task_id":1,"ts":"2026-09-10T03:45:00Z"}
+{"action":"create","agent":"Torsten Raudssus","detail":"backlog","task_id":4,"ts":"2026-09-10T03:47:43Z"}
+{"action":"edit","agent":"worker-c","detail":"in-progress","task_id":1,"ts":"2026-09-10T03:48:07Z"}
+{"action":"move","agent":"worker-c","detail":"done","task_id":1,"ts":"2026-09-10T03:48:16Z"}
+{"action":"handoff","agent":"opus-hub","detail":"review","task_id":4,"ts":"2026-09-14T05:08:56Z"}
+{"action":"create","agent":"Torsten Raudssus","detail":"backlog","task_id":5,"ts":"2026-10-06T19:19:02Z"}
+{"action":"create","agent":"Torsten Raudssus","detail":"backlog","task_id":6,"ts":"2026-10-06T19:19:07Z"}
+{"action":"create","agent":"Torsten Raudssus","detail":"backlog","task_id":7,"ts":"2026-10-06T19:19:12Z"}
+{"action":"create","agent":"Torsten Raudssus","detail":"backlog","task_id":8,"ts":"2026-10-06T19:19:16Z"}
