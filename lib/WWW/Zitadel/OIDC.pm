@@ -104,6 +104,14 @@ sub verify_token {
     die WWW::Zitadel::Error::Validation->new(message => 'No token provided')
         unless defined $token;
 
+    # Crypt::JWT pins the signature algorithm through accepted_alg and
+    # silently ignores option names it does not know, so the list has to be
+    # handed over under exactly that name. accepted_key_alg is the name this
+    # method took first and stays as an alias.
+    my $accepted_alg = $args{accepted_alg}
+        // $args{accepted_key_alg}
+        // ['RS256', 'RS384', 'RS512'];
+
     my $jwks = $self->jwks;
     my $claims;
     eval {
@@ -115,7 +123,7 @@ sub verify_token {
             verify_nbf  => $args{verify_nbf} // 0,
             verify_iss  => $self->issuer,
             verify_aud  => $args{audience},
-            accepted_key_alg => $args{accepted_key_alg} // ['RS256', 'RS384', 'RS512'],
+            accepted_alg => $accepted_alg,
         );
     };
     if ($@ && !$args{no_retry}) {
@@ -129,7 +137,7 @@ sub verify_token {
             verify_nbf  => $args{verify_nbf} // 0,
             verify_iss  => $self->issuer,
             verify_aud  => $args{audience},
-            accepted_key_alg => $args{accepted_key_alg} // ['RS256', 'RS384', 'RS512'],
+            accepted_alg => $accepted_alg,
         );
     }
     elsif ($@) {
@@ -335,7 +343,20 @@ Verifies a JWT access token against the JWKS. Returns the decoded claims
 hashref on success, dies on failure.
 
 Options: C<audience>, C<verify_exp> (default 1), C<verify_iat> (default 0),
-C<verify_nbf> (default 0), C<accepted_key_alg> (default RS256/384/512).
+C<verify_nbf> (default 0), C<accepted_alg> (default RS256/384/512).
+
+C<accepted_alg> is the allow-list of signature algorithms and is passed to
+L<Crypt::JWT> as its C<accepted_alg>: an algorithm name, an arrayref of names
+or a C<Regexp>. A token signed with any other algorithm is rejected, even if
+its key is in the JWKS. The default accepts RSA PKCS#1 v1.5 signatures only;
+an instance that signs with ECDSA or Ed25519 keys needs the list widened:
+
+    my $claims = $oidc->verify_token($jwt,
+        accepted_alg => ['RS256', 'ES256', 'EdDSA'],
+    );
+
+C<accepted_key_alg> is the older name of the same option and is still
+accepted; C<accepted_alg> wins if both are given.
 
 =method userinfo
 

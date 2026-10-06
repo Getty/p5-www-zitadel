@@ -1,6 +1,12 @@
 Revision history for WWW-Zitadel
 
 {{$NEXT}}
+    - Security: `verify_token` enforces its signature algorithm allow-list. A
+      token signed with an algorithm outside the list (default RS256, RS384,
+      RS512) is rejected even when its key is in the JWKS; widen the list for
+      an instance that signs with PS*, ES* or EdDSA.
+    - `verify_token` takes the allow-list as `accepted_alg` (name, arrayref or
+      Regexp, as in Crypt::JWT); `accepted_key_alg` stays as an alias.
     - Split WWW::Zitadel::Error into one package per file (Error/Validation.pm,
       Error/Network.pm, Error/API.pm); the base module still loads all three,
       so `use WWW::Zitadel::Error` is unchanged for callers. Clears the dzil
