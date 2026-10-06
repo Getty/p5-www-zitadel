@@ -1,0 +1,26 @@
+---
+class: standard
+created: 2026-10-06T19:19:07Z
+id: 6
+priority: medium
+status: backlog
+tags:
+- bug
+- oidc
+- errors
+- review-2026-10-06
+title: 'OIDC error paths: OAuth errors arrive as Error::Network with only a status
+  line; missing endpoints die with plain strings'
+updated: 2026-10-06T19:19:07Z
+---
+
+Three inconsistencies in `lib/WWW/Zitadel/OIDC.pm` against the error hierarchy the dist documents (`Error::Validation` / `Error::Network` / `Error::API`):
+
+1. `token` (line 204-208), `introspect` (182-186) and `userinfo` (156-160) throw `WWW::Zitadel::Error::Network` for every non-2xx answer. A 400 `{"error":"invalid_grant","error_description":...}` or a 401 from the token endpoint is not a network problem, and the body is thrown away: the caller sees only `Token endpoint failed: 400 Bad Request` and cannot tell `invalid_grant` from `invalid_client` or `authorization_pending`.
+2. `jwks_uri`, `token_endpoint`, `userinfo_endpoint`, `authorization_endpoint`, `introspection_endpoint` (lines 53-81) die with bare strings (`"No jwks_uri in discovery document\n"`), so `$err->isa('WWW::Zitadel::Error')` is false for them.
+3. `decode_json($res->decoded_content)` (lines 42, 97, 161, 187, 209) is unguarded: a 200 with an HTML body (proxy, wrong issuer URL) dies with a raw JSON parser message.
+
+Done: non-2xx answers from the three endpoints raise `Error::API` with `http_status`, the OAuth `error`/`error_description` in `api_message`; `Error::Network` stays for LWP's internal 500 (`Client-Warning: Internal response`); missing discovery keys and undecodable bodies raise `Error::Validation`/`Error::API`; tests for each. Mirror in p5-net-async-zitadel (`Net/Async/Zitadel/OIDC.pm:230,274,310`).
+
+---
+Fleet review 2026-10-06 · kind: bug · confidence: verified
