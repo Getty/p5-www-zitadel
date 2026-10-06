@@ -1,0 +1,28 @@
+---
+class: standard
+created: 2026-10-06T19:19:02Z
+id: 5
+priority: medium
+status: backlog
+tags:
+- bug
+- security
+- oidc
+- review-2026-10-06
+title: verify_token refetches the JWKS on every rejected token
+updated: 2026-10-06T19:19:02Z
+---
+
+`lib/WWW/Zitadel/OIDC.pm:121-134`: `if ($@ && !$args{no_retry})` forces `jwks(force_refresh => 1)` after *any* decode failure - expired token, wrong issuer, wrong audience, bad signature, garbage. Only an unknown `kid` can be cured by new keys.
+
+Consequences:
+
+- Every invalid bearer token a service receives costs one blocking HTTP request to Zitadel. Anyone who can send requests can make the service hammer the IdP (and block its own workers for up to the 10 s / 30 s UA timeout).
+- If that refresh fails, the caller gets `Error::Network: JWKS fetch failed` instead of the real reason the token was rejected.
+
+The newer siblings solved this: `WWW::Authentik::OIDC::verify_token` refreshes only on `kid_keys lookup failed` and not more often than `jwks_min_age` (`p5-www-authentik/lib/WWW/Authentik/OIDC.pm:256`).
+
+Done: refresh only when the failure is the kid lookup, rate-limited by a minimum age; all other failures are thrown as they are. Tests: an expired token causes no second JWKS GET; an unknown kid causes exactly one. Same change in p5-net-async-zitadel.
+
+---
+Fleet review 2026-10-06 · kind: bug · confidence: verified
