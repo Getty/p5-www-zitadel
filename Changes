@@ -31,10 +31,11 @@ Revision history for WWW-Zitadel
       an instance that signs with PS*, ES* or EdDSA.
     - `verify_token` takes the allow-list as `accepted_alg` (name, arrayref or
       Regexp, as in Crypt::JWT); `accepted_key_alg` stays as an alias.
-    - Split WWW::Zitadel::Error into one package per file (Error/Validation.pm,
-      Error/Network.pm, Error/API.pm); the base module still loads all three,
-      so `use WWW::Zitadel::Error` is unchanged for callers. Clears the dzil
-      "provide map entries did not map to .pm files" warning.
+    - Split WWW::Zitadel::Error into one package per file
+      (Error/Validation.pm, Error/Network.pm, Error/API.pm); the base module
+      still loads all three, so `use WWW::Zitadel::Error` is unchanged for
+      callers. Clears the dzil "provide map entries did not map to .pm files"
+      warning.
     - WWW::Zitadel facade now shares a single LWP::UserAgent across the
       lazy-built `oidc` and `management` sub-clients (connection pooling).
       New `ua` attribute lets callers inject a customized agent; the README
@@ -50,9 +51,10 @@ Revision history for WWW-Zitadel
       - Typed identity providers (Add*Provider endpoints, `providerOptions`
         shape): `create_jwt_idp` (`/idps/generic_jwt`), `create_google_idp`,
         `create_azuread_idp` (`/idps/azure`), `create_github_idp`,
-        `create_github_enterprise_idp` (`/idps/github_es`), `create_gitlab_idp`,
-        `create_gitlab_self_hosted_idp`, `create_apple_idp` (private_key
-        base64-encoded), `create_ldap_idp` (root_ca base64-encoded)
+        `create_github_enterprise_idp` (`/idps/github_es`),
+        `create_gitlab_idp`, `create_gitlab_self_hosted_idp`,
+        `create_apple_idp` (private_key base64-encoded), `create_ldap_idp`
+        (root_ca base64-encoded)
       - Project roles: `update_project_role`, `remove_project_role`
       - Applications: `create_saml_app` (metadata_xml base64-encoded or
         metadata_url), `update_saml_app`, `create_api_app`
