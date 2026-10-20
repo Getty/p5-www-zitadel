@@ -1,0 +1,30 @@
+---
+claimed_at: 2026-10-20T04:53:40Z
+claimed_by: k9
+class: standard
+completed: 2026-10-20T04:53:40Z
+created: 2026-10-20T04:18:29Z
+id: 9
+priority: medium
+started: 2026-10-20T04:53:40Z
+status: done
+title: 'Error::Network / Error::API: the POD describes the old division of labour'
+updated: 2026-10-20T04:53:40Z
+---
+
+Since the OIDC endpoints report a non-2xx answer as WWW::Zitadel::Error::API, the POD of WWW::Zitadel::Error is wrong in two places:
+
+- Error::Network is described as thrown for a 'non-success response on OIDC endpoints'. That is an Error::API since the change of the OIDC error paths; Error::Network is only for a request that never reached a server (connection refused, DNS, TLS, timeout, an internal LWP answer).
+- Error::API is described as thrown when 'the Management API returns a non-2xx response'. The OIDC endpoints token, introspect and userinfo throw it as well.
+
+Expected behaviour: the POD names both classes the way the code behaves after the change; the class hierarchy and the code stay untouched.
+
+2026-10-20 04:41 Also found: README.md lines 277-278 carry the same old division of labour in the error class table (Error::Network = "Discovery, JWKS, UserInfo, Token endpoint HTTP failures", Error::API = "Management API non-2xx responses"). The card limits the change to the three POD files, so the README was left untouched.
+
+2026-10-20 04:41 Also found: the async twin p5-net-async-zitadel still raises Net::Async::Zitadel::Error::Network for a failed answer of its OIDC endpoints (OIDC.pm lines 96, 133, 238, 282, 318), and its Error::API POD still names only the Management API. The behaviour change of the sync repo (k6) has no counterpart there yet, so the twin needs its own card; not edited from here.
+
+2026-10-20 04:42 Done: commit 550bbc5 on branch k9. The POD of WWW::Zitadel::Error, ::Error::Network and ::Error::API now describes the division of labour of the code: Error::Network for a request that never reached a server (and for a discovery document or JWKS that cannot be fetched), Error::API for an answer that was not successful from the OIDC endpoints token, introspect and userinfo as well as from the Management API. No code touched. Changes entry added under {{$NEXT}}. Verified: prove -lr t/ = 483 tests, 8 files, all ok (live and k8s skipped); dzil build clean; the author pod-syntax test of the built dist passes (7/7).
+
+2026-10-20 04:42 Done: the POD of WWW::Zitadel::Error, ::Error::Network and ::Error::API names the error classes the way the code throws them after the k6 change. No code touched, no new test (no behaviour change). Changes entry under {{$NEXT}}. prove -lr t/ green (483 tests, 8 files, live/k8s skipped); dzil build clean; author pod-syntax test of the built dist 7/7 ok. Commit 550bbc5 on branch k9.
+
+2026-10-20 Koordination: Der Branch ist auf main gezogen (fast-forward, keine Merge-Konflikte). Die Karte ist damit erledigt. Die POD von `WWW::Zitadel::Error`, `::Error::Network` und `::Error::API` beschreibt jetzt die Arbeitsteilung des Codes: `Error::Network` fuer Anfragen, die keinen Server erreicht haben (und fuer Discovery/JWKS, die nicht abrufbar sind), `Error::API` fuer eine nicht erfolgreiche Antwort der OIDC-Endpunkte und der Management API. Kein Code angefasst, kein Verhaltenswechsel, deshalb kein neuer Test noetig. Nachweis: `prove -lr t/` = 8 Dateien, 483 Tests, alles gruen; `dzil build` sauber. Kein Push, kein `dzil release`.
