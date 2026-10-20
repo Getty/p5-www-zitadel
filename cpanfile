@@ -1,16 +1,16 @@
-requires 'Moo';
-requires 'LWP::UserAgent';
-requires 'LWP::Protocol::https';
+requires 'Crypt::JWT';
 requires 'HTTP::Request';
 requires 'JSON::MaybeXS';
-requires 'Crypt::JWT';
+requires 'LWP::Protocol::https';
+requires 'LWP::UserAgent';
 requires 'MIME::Base64';
-requires 'URI::Escape';
+requires 'Moo';
 requires 'namespace::clean';
+requires 'URI::Escape';
 
 on test => sub {
-    requires 'Test::More';
-    requires 'Test::Exception';
-    requires 'Crypt::PK::RSA';
     requires 'Crypt::PK::ECC';
+    requires 'Crypt::PK::RSA';
+    requires 'Test::Exception';
+    requires 'Test::More';
 };

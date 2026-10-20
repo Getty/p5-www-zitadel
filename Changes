@@ -1,6 +1,11 @@
 Revision history for WWW-Zitadel
 
 {{$NEXT}}
+    - A test holds the prerequisites of the cpanfile: every module the code
+      loads is a declared prerequisite, so a lost one fails the build and not
+      the first use on a machine where the module is not installed.
+    - The cpanfile lists its prerequisites alphabetically, runtime block and
+      test block alike.
     - Declare LWP::Protocol::https in the cpanfile: without it a fresh
       installation cannot reach an issuer on https://.
     - `verify_token` fetches the keys again only when a token names a key the
