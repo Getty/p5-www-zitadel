@@ -940,4 +940,51 @@ sub _success_json {
         qr/user_id required/, 'resend_email_verification validates user_id';
 }
 
+# Every value that is interpolated into the path is escaped: a key with a
+# slash in it would address another endpoint otherwise.
+{
+    my $mgmt = Local::Recorder->new(
+        base_url => 'https://zitadel.example.com',
+        token    => 'pat-token',
+    );
+
+    my $key = "a/b c\x{00fc}";
+
+    $mgmt->set_user_metadata('user-1', $key, 'value');
+    is $mgmt->calls->[0][1], '/users/user-1/metadata/a%2Fb%20c%C3%BC',
+        'a metadata key is escaped in the path';
+
+    $mgmt->get_user_metadata('user-1', $key);
+    is $mgmt->calls->[1][1], '/users/user-1/metadata/a%2Fb%20c%C3%BC',
+        'a metadata key is escaped in the path of a read';
+
+    $mgmt->update_project_role('project-1', "role/with space", display_name => 'Role');
+    is $mgmt->calls->[2][1], '/projects/project-1/roles/role%2Fwith%20space',
+        'a role key is escaped in the path';
+
+    $mgmt->remove_project_role('project-1', "role/with space");
+    is $mgmt->calls->[3][1], '/projects/project-1/roles/role%2Fwith%20space',
+        'a role key is escaped in the path of a delete';
+
+    $mgmt->remove_org_domain('example.com/evil');
+    is $mgmt->calls->[4][1], '/orgs/me/domains/example.com%2Fevil',
+        'a domain is escaped in the path';
+
+    $mgmt->update_user_grant('user-1', 'grant/1');
+    is $mgmt->calls->[5][1], '/users/user-1/grants/grant%2F1',
+        'a grant id is escaped in the path';
+
+    $mgmt->get_user('user/1');
+    is $mgmt->calls->[6][1], '/users/user%2F1',
+        'an id is escaped in the path';
+
+    $mgmt->get_user('user*1');
+    is $mgmt->calls->[7][1], '/users/user*1',
+        'the star stays literal in the path';
+
+    $mgmt->get_user('user-1');
+    is $mgmt->calls->[8][1], '/users/user-1',
+        'a plain id is not changed';
+}
+
 done_testing;

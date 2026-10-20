@@ -17,6 +17,9 @@ Revision history for WWW-Zitadel
     - A discovery document without the needed endpoint raises
       `WWW::Zitadel::Error::Validation`, and a response body that is not JSON
       raises `WWW::Zitadel::Error::API` instead of a raw parser message.
+    - The Management client escapes every value that goes into the path: ids,
+      metadata keys, domain names, role keys and grant ids. A key with a
+      slash in it addresses the key and not another endpoint.
     - Security: `verify_token` enforces its signature algorithm allow-list. A
       token signed with an algorithm outside the list (default RS256, RS384,
       RS512) is rejected even when its key is in the JWKS; widen the list for

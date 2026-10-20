@@ -5,6 +5,7 @@ requires 'HTTP::Request';
 requires 'JSON::MaybeXS';
 requires 'Crypt::JWT';
 requires 'MIME::Base64';
+requires 'URI::Escape';
 requires 'namespace::clean';
 
 on test => sub {

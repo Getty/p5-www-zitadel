@@ -7,6 +7,7 @@ use JSON::MaybeXS qw(encode_json decode_json);
 use LWP::UserAgent;
 use HTTP::Request;
 use MIME::Base64 qw(encode_base64);
+use URI::Escape qw(uri_escape_utf8);
 use WWW::Zitadel::Error;
 use namespace::clean;
 
@@ -85,6 +86,19 @@ sub _delete { $_[0]->_request('DELETE', $_[1]) }
 
 sub _require { die WWW::Zitadel::Error::Validation->new(message => $_[0]) }
 
+# The characters that stay as they are in a path segment: the unreserved
+# ones of RFC 3986 plus the '*' of the MikroTik house decision.
+my $PATH_SAFE = '^A-Za-z0-9\-._~*';
+
+# A value that is interpolated into the path has to be escaped: a metadata
+# key with a slash in it would address another endpoint otherwise. The
+# import of URI::Escape is needed for the module to be loaded - namespace::clean
+# removes the alias, so the call is fully qualified.
+sub _esc {
+    my ($self, $segment) = @_;
+    return URI::Escape::uri_escape_utf8($segment, $PATH_SAFE);
+}
+
 # --- Users ---
 
 sub list_users {
@@ -102,7 +116,7 @@ sub list_users {
 sub get_user {
     my ($self, $user_id) = @_;
     $user_id or _require('user_id required');
-    $self->_get("/users/$user_id");
+    $self->_get("/users/" . $self->_esc($user_id));
 }
 
 sub create_human_user {
@@ -131,7 +145,7 @@ sub create_human_user {
 sub update_user {
     my ($self, $user_id, %args) = @_;
     $user_id or _require('user_id required');
-    $self->_put("/users/$user_id/profile", {
+    $self->_put("/users/" . $self->_esc($user_id) . "/profile", {
         $args{first_name}   ? (firstName   => $args{first_name})   : (),
         $args{last_name}    ? (lastName    => $args{last_name})    : (),
         $args{display_name} ? (displayName => $args{display_name}) : (),
@@ -142,31 +156,31 @@ sub update_user {
 sub deactivate_user {
     my ($self, $user_id) = @_;
     $user_id or _require('user_id required');
-    $self->_post("/users/$user_id/_deactivate", {});
+    $self->_post("/users/" . $self->_esc($user_id) . "/_deactivate", {});
 }
 
 sub reactivate_user {
     my ($self, $user_id) = @_;
     $user_id or _require('user_id required');
-    $self->_post("/users/$user_id/_reactivate", {});
+    $self->_post("/users/" . $self->_esc($user_id) . "/_reactivate", {});
 }
 
 sub lock_user {
     my ($self, $user_id) = @_;
     $user_id or _require('user_id required');
-    $self->_post("/users/$user_id/_lock", {});
+    $self->_post("/users/" . $self->_esc($user_id) . "/_lock", {});
 }
 
 sub unlock_user {
     my ($self, $user_id) = @_;
     $user_id or _require('user_id required');
-    $self->_post("/users/$user_id/_unlock", {});
+    $self->_post("/users/" . $self->_esc($user_id) . "/_unlock", {});
 }
 
 sub delete_user {
     my ($self, $user_id) = @_;
     $user_id or _require('user_id required');
-    $self->_delete("/users/$user_id");
+    $self->_delete("/users/" . $self->_esc($user_id));
 }
 
 # --- Service / machine users ---
@@ -198,13 +212,13 @@ sub list_service_users {
 sub get_service_user {
     my ($self, $user_id) = @_;
     $user_id or _require('user_id required');
-    $self->_get("/users/$user_id");
+    $self->_get("/users/" . $self->_esc($user_id));
 }
 
 sub delete_service_user {
     my ($self, $user_id) = @_;
     $user_id or _require('user_id required');
-    $self->_delete("/users/$user_id");
+    $self->_delete("/users/" . $self->_esc($user_id));
 }
 
 # --- Machine keys (JWT auth for service users) ---
@@ -212,7 +226,7 @@ sub delete_service_user {
 sub add_machine_key {
     my ($self, $user_id, %args) = @_;
     $user_id or _require('user_id required');
-    $self->_post("/users/$user_id/keys", {
+    $self->_post("/users/" . $self->_esc($user_id) . "/keys", {
         type => $args{type} // 'KEY_TYPE_JSON',
         $args{expiration_date} ? (expirationDate => $args{expiration_date}) : (),
     });
@@ -221,7 +235,7 @@ sub add_machine_key {
 sub list_machine_keys {
     my ($self, $user_id, %args) = @_;
     $user_id or _require('user_id required');
-    $self->_post("/users/$user_id/keys/_search", {
+    $self->_post("/users/" . $self->_esc($user_id) . "/keys/_search", {
         query => {
             offset => $args{offset} // 0,
             limit  => $args{limit}  // 100,
@@ -233,7 +247,7 @@ sub remove_machine_key {
     my ($self, $user_id, $key_id) = @_;
     $user_id or _require('user_id required');
     $key_id  or _require('key_id required');
-    $self->_delete("/users/$user_id/keys/$key_id");
+    $self->_delete("/users/" . $self->_esc($user_id) . "/keys/" . $self->_esc($key_id));
 }
 
 # --- Password management ---
@@ -241,7 +255,7 @@ sub remove_machine_key {
 sub set_password {
     my ($self, $user_id, %args) = @_;
     $user_id or _require('user_id required');
-    $self->_post("/users/$user_id/password", {
+    $self->_post("/users/" . $self->_esc($user_id) . "/password", {
         password        => $args{password} // _require('password required'),
         $args{change_required} ? (changeRequired => $args{change_required}) : (),
     });
@@ -250,13 +264,13 @@ sub set_password {
 sub request_password_reset {
     my ($self, $user_id) = @_;
     $user_id or _require('user_id required');
-    $self->_post("/users/$user_id/_reset_password", {});
+    $self->_post("/users/" . $self->_esc($user_id) . "/_reset_password", {});
 }
 
 sub resend_email_verification {
     my ($self, $user_id) = @_;
     $user_id or _require('user_id required');
-    $self->_post("/users/$user_id/email/_resend_verification", {});
+    $self->_post("/users/" . $self->_esc($user_id) . "/email/_resend_verification", {});
 }
 
 # --- User metadata ---
@@ -266,7 +280,7 @@ sub set_user_metadata {
     $user_id       or _require('user_id required');
     $key           or _require('key required');
     defined $value or _require('value required');
-    $self->_post("/users/$user_id/metadata/$key", {
+    $self->_post("/users/" . $self->_esc($user_id) . "/metadata/" . $self->_esc($key), {
         value => encode_base64($value, ''),
     });
 }
@@ -275,13 +289,13 @@ sub get_user_metadata {
     my ($self, $user_id, $key) = @_;
     $user_id or _require('user_id required');
     $key     or _require('key required');
-    $self->_get("/users/$user_id/metadata/$key");
+    $self->_get("/users/" . $self->_esc($user_id) . "/metadata/" . $self->_esc($key));
 }
 
 sub list_user_metadata {
     my ($self, $user_id, %args) = @_;
     $user_id or _require('user_id required');
-    $self->_post("/users/$user_id/metadata/_search", {
+    $self->_post("/users/" . $self->_esc($user_id) . "/metadata/_search", {
         query => {
             offset => $args{offset} // 0,
             limit  => $args{limit}  // 100,
@@ -305,7 +319,7 @@ sub list_projects {
 sub get_project {
     my ($self, $project_id) = @_;
     $project_id or _require('project_id required');
-    $self->_get("/projects/$project_id");
+    $self->_get("/projects/" . $self->_esc($project_id));
 }
 
 sub create_project {
@@ -322,7 +336,7 @@ sub create_project {
 sub update_project {
     my ($self, $project_id, %args) = @_;
     $project_id or _require('project_id required');
-    $self->_put("/projects/$project_id", {
+    $self->_put("/projects/" . $self->_esc($project_id), {
         name => $args{name} // _require('name required'),
         $args{project_role_assertion}   ? (projectRoleAssertion   => $args{project_role_assertion})   : (),
         $args{project_role_check}       ? (projectRoleCheck       => $args{project_role_check})       : (),
@@ -334,7 +348,7 @@ sub update_project {
 sub delete_project {
     my ($self, $project_id) = @_;
     $project_id or _require('project_id required');
-    $self->_delete("/projects/$project_id");
+    $self->_delete("/projects/" . $self->_esc($project_id));
 }
 
 # --- Applications (OIDC) ---
@@ -342,7 +356,7 @@ sub delete_project {
 sub list_apps {
     my ($self, $project_id, %args) = @_;
     $project_id or _require('project_id required');
-    $self->_post("/projects/$project_id/apps/_search", {
+    $self->_post("/projects/" . $self->_esc($project_id) . "/apps/_search", {
         query => {
             offset => $args{offset} // 0,
             limit  => $args{limit}  // 100,
@@ -355,13 +369,13 @@ sub get_app {
     my ($self, $project_id, $app_id) = @_;
     $project_id or _require('project_id required');
     $app_id     or _require('app_id required');
-    $self->_get("/projects/$project_id/apps/$app_id");
+    $self->_get("/projects/" . $self->_esc($project_id) . "/apps/" . $self->_esc($app_id));
 }
 
 sub create_oidc_app {
     my ($self, $project_id, %args) = @_;
     $project_id or _require('project_id required');
-    $self->_post("/projects/$project_id/apps/oidc", {
+    $self->_post("/projects/" . $self->_esc($project_id) . "/apps/oidc", {
         name                  => $args{name}          // _require('name required'),
         redirectUris          => $args{redirect_uris} // _require('redirect_uris required'),
         responseTypes         => $args{response_types} // ['OIDC_RESPONSE_TYPE_CODE'],
@@ -380,7 +394,7 @@ sub update_oidc_app {
     my ($self, $project_id, $app_id, %args) = @_;
     $project_id or _require('project_id required');
     $app_id     or _require('app_id required');
-    $self->_put("/projects/$project_id/apps/$app_id/oidc_config", {
+    $self->_put("/projects/" . $self->_esc($project_id) . "/apps/" . $self->_esc($app_id) . "/oidc_config", {
         $args{redirect_uris}           ? (redirectUris            => $args{redirect_uris})           : (),
         $args{response_types}          ? (responseTypes           => $args{response_types})          : (),
         $args{grant_types}             ? (grantTypes              => $args{grant_types})             : (),
@@ -398,7 +412,7 @@ sub delete_app {
     my ($self, $project_id, $app_id) = @_;
     $project_id or _require('project_id required');
     $app_id     or _require('app_id required');
-    $self->_delete("/projects/$project_id/apps/$app_id");
+    $self->_delete("/projects/" . $self->_esc($project_id) . "/apps/" . $self->_esc($app_id));
 }
 
 sub create_saml_app {
@@ -415,7 +429,7 @@ sub create_saml_app {
         _require('metadata_xml or metadata_url required');
     }
     $body{loginVersion} = $args{login_version} if $args{login_version};
-    $self->_post("/projects/$project_id/apps/saml", \%body);
+    $self->_post("/projects/" . $self->_esc($project_id) . "/apps/saml", \%body);
 }
 
 sub update_saml_app {
@@ -431,13 +445,13 @@ sub update_saml_app {
         _require('metadata_xml or metadata_url required');
     }
     $body{loginVersion} = $args{login_version} if $args{login_version};
-    $self->_put("/projects/$project_id/apps/$app_id/saml_config", \%body);
+    $self->_put("/projects/" . $self->_esc($project_id) . "/apps/" . $self->_esc($app_id) . "/saml_config", \%body);
 }
 
 sub create_api_app {
     my ($self, $project_id, %args) = @_;
     $project_id or _require('project_id required');
-    $self->_post("/projects/$project_id/apps/api", {
+    $self->_post("/projects/" . $self->_esc($project_id) . "/apps/api", {
         name => $args{name} // _require('name required'),
         $args{auth_method} ? (authMethodType => $args{auth_method}) : (),
     });
@@ -494,7 +508,7 @@ sub add_org_domain {
 sub generate_org_domain_validation {
     my ($self, $domain, %args) = @_;
     $domain or _require('domain required');
-    $self->_post("/orgs/me/domains/$domain/validation/_generate", {
+    $self->_post("/orgs/me/domains/" . $self->_esc($domain) . "/validation/_generate", {
         type => $args{type} // _require('type required'),
     });
 }
@@ -502,13 +516,13 @@ sub generate_org_domain_validation {
 sub validate_org_domain {
     my ($self, $domain) = @_;
     $domain or _require('domain required');
-    $self->_post("/orgs/me/domains/$domain/validation/_validate", {});
+    $self->_post("/orgs/me/domains/" . $self->_esc($domain) . "/validation/_validate", {});
 }
 
 sub set_primary_org_domain {
     my ($self, $domain) = @_;
     $domain or _require('domain required');
-    $self->_post("/orgs/me/domains/$domain/_set_primary", {});
+    $self->_post("/orgs/me/domains/" . $self->_esc($domain) . "/_set_primary", {});
 }
 
 sub list_org_domains {
@@ -525,7 +539,7 @@ sub list_org_domains {
 sub remove_org_domain {
     my ($self, $domain) = @_;
     $domain or _require('domain required');
-    $self->_delete("/orgs/me/domains/$domain");
+    $self->_delete("/orgs/me/domains/" . $self->_esc($domain));
 }
 
 # --- Roles ---
@@ -533,7 +547,7 @@ sub remove_org_domain {
 sub add_project_role {
     my ($self, $project_id, %args) = @_;
     $project_id or _require('project_id required');
-    $self->_post("/projects/$project_id/roles", {
+    $self->_post("/projects/" . $self->_esc($project_id) . "/roles", {
         roleKey     => $args{role_key} // _require('role_key required'),
         displayName => $args{display_name} // $args{role_key},
         $args{group} ? (group => $args{group}) : (),
@@ -543,7 +557,7 @@ sub add_project_role {
 sub list_project_roles {
     my ($self, $project_id, %args) = @_;
     $project_id or _require('project_id required');
-    $self->_post("/projects/$project_id/roles/_search", {
+    $self->_post("/projects/" . $self->_esc($project_id) . "/roles/_search", {
         query => {
             offset => $args{offset} // 0,
             limit  => $args{limit}  // 100,
@@ -556,7 +570,7 @@ sub update_project_role {
     my ($self, $project_id, $role_key, %args) = @_;
     $project_id or _require('project_id required');
     $role_key   or _require('role_key required');
-    $self->_put("/projects/$project_id/roles/$role_key", {
+    $self->_put("/projects/" . $self->_esc($project_id) . "/roles/" . $self->_esc($role_key), {
         displayName => $args{display_name} // _require('display_name required'),
         $args{group} ? (group => $args{group}) : (),
     });
@@ -566,7 +580,7 @@ sub remove_project_role {
     my ($self, $project_id, $role_key) = @_;
     $project_id or _require('project_id required');
     $role_key   or _require('role_key required');
-    $self->_delete("/projects/$project_id/roles/$role_key");
+    $self->_delete("/projects/" . $self->_esc($project_id) . "/roles/" . $self->_esc($role_key));
 }
 
 # --- User Grants (role assignments) ---
@@ -574,7 +588,7 @@ sub remove_project_role {
 sub create_user_grant {
     my ($self, %args) = @_;
     my $user_id = $args{user_id} // _require('user_id required');
-    $self->_post("/users/$user_id/grants", {
+    $self->_post("/users/" . $self->_esc($user_id) . "/grants", {
         projectId => $args{project_id} // _require('project_id required'),
         roleKeys  => $args{role_keys}  // _require('role_keys required'),
     });
@@ -595,7 +609,7 @@ sub update_user_grant {
     my ($self, $user_id, $grant_id, %args) = @_;
     $user_id  or _require('user_id required');
     $grant_id or _require('grant_id required');
-    $self->_put("/users/$user_id/grants/$grant_id", {
+    $self->_put("/users/" . $self->_esc($user_id) . "/grants/" . $self->_esc($grant_id), {
         $args{role_keys} ? (roleKeys => $args{role_keys}) : (),
     });
 }
@@ -604,21 +618,21 @@ sub deactivate_user_grant {
     my ($self, $user_id, $grant_id) = @_;
     $user_id  or _require('user_id required');
     $grant_id or _require('grant_id required');
-    $self->_post("/users/$user_id/grants/$grant_id/_deactivate", {});
+    $self->_post("/users/" . $self->_esc($user_id) . "/grants/" . $self->_esc($grant_id) . "/_deactivate", {});
 }
 
 sub reactivate_user_grant {
     my ($self, $user_id, $grant_id) = @_;
     $user_id  or _require('user_id required');
     $grant_id or _require('grant_id required');
-    $self->_post("/users/$user_id/grants/$grant_id/_reactivate", {});
+    $self->_post("/users/" . $self->_esc($user_id) . "/grants/" . $self->_esc($grant_id) . "/_reactivate", {});
 }
 
 sub delete_user_grant {
     my ($self, $user_id, $grant_id) = @_;
     $user_id  or _require('user_id required');
     $grant_id or _require('grant_id required');
-    $self->_delete("/users/$user_id/grants/$grant_id");
+    $self->_delete("/users/" . $self->_esc($user_id) . "/grants/" . $self->_esc($grant_id));
 }
 
 # --- Identity Providers (IDPs) ---
@@ -637,7 +651,7 @@ sub list_idps {
 sub get_idp {
     my ($self, $idp_id) = @_;
     $idp_id or _require('idp_id required');
-    $self->_get("/idps/$idp_id");
+    $self->_get("/idps/" . $self->_esc($idp_id));
 }
 
 sub create_oidc_idp {
@@ -781,7 +795,7 @@ sub create_ldap_idp {
 sub update_idp {
     my ($self, $idp_id, %args) = @_;
     $idp_id or _require('idp_id required');
-    $self->_put("/idps/$idp_id", {
+    $self->_put("/idps/" . $self->_esc($idp_id), {
         name => $args{name} // _require('name required'),
         $args{display_name_mapping} ? (displayNameMapping => $args{display_name_mapping}) : (),
         $args{username_mapping}     ? (usernameMapping    => $args{username_mapping})     : (),
@@ -792,19 +806,19 @@ sub update_idp {
 sub delete_idp {
     my ($self, $idp_id) = @_;
     $idp_id or _require('idp_id required');
-    $self->_delete("/idps/$idp_id");
+    $self->_delete("/idps/" . $self->_esc($idp_id));
 }
 
 sub activate_idp {
     my ($self, $idp_id) = @_;
     $idp_id or _require('idp_id required');
-    $self->_post("/idps/$idp_id/_activate", {});
+    $self->_post("/idps/" . $self->_esc($idp_id) . "/_activate", {});
 }
 
 sub deactivate_idp {
     my ($self, $idp_id) = @_;
     $idp_id or _require('idp_id required');
-    $self->_post("/idps/$idp_id/_deactivate", {});
+    $self->_post("/idps/" . $self->_esc($idp_id) . "/_deactivate", {});
 }
 
 1;
@@ -943,6 +957,10 @@ Errors are thrown as L<WWW::Zitadel::Error> subclass objects. Because they
 stringify to their C<message>, existing C<eval>/C<$@> string-matching patterns
 continue to work. For typed dispatch, check C<< $@->isa('WWW::Zitadel::Error::API') >>
 etc.
+
+Every value that is interpolated into the path - ids, metadata keys, domain
+names, role keys, grant ids - is escaped. A key with a slash in it therefore
+addresses the key and not another endpoint.
 
 =attr base_url
 
