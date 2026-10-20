@@ -8,6 +8,15 @@ Revision history for WWW-Zitadel
       other rejection (an expired token, the wrong issuer, a bad signature)
       is thrown unchanged and costs no request to the issuer. The refresh
       happens at most once per `jwks_min_age` (default 60 seconds).
+    - The OIDC endpoints `token`, `introspect` and `userinfo` raise
+      `WWW::Zitadel::Error::API` for an answer that was not successful: the
+      status line is in `http_status`, the OAuth `error_description` or
+      `error` of the body in `api_message`. The error message itself is
+      unchanged, so code that matches on the string keeps working. A request
+      that never reached a server stays a `WWW::Zitadel::Error::Network`.
+    - A discovery document without the needed endpoint raises
+      `WWW::Zitadel::Error::Validation`, and a response body that is not JSON
+      raises `WWW::Zitadel::Error::API` instead of a raw parser message.
     - Security: `verify_token` enforces its signature algorithm allow-list. A
       token signed with an algorithm outside the list (default RS256, RS384,
       RS512) is rejected even when its key is in the JWKS; widen the list for

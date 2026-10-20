@@ -11,6 +11,11 @@ use namespace::clean;
 
 our $VERSION = '0.002';
 
+# The number of characters of a response body that are copied into an error
+# message. A body can be an HTML page of a proxy; nobody wants that in a
+# log line.
+my $MAX_BODY_IN_ERROR = 200;
+
 has issuer => (
     is       => 'ro',
     required => 1,
@@ -39,7 +44,7 @@ has _discovery => (
                 message => 'Discovery failed: ' . $res->status_line,
             );
         }
-        decode_json($res->decoded_content);
+        $self->_decode_json_body($res, 'Discovery');
     },
 );
 
@@ -68,34 +73,47 @@ has _jwks_fetched => (
 
 sub discovery { $_[0]->_discovery }
 
+# A discovery document without the endpoint we need is a wrong document, not
+# a broken network: that is a validation error, with the same wording as
+# before.
 sub jwks_uri {
     my $self = shift;
     $self->_discovery->{jwks_uri}
-        // die "No jwks_uri in discovery document\n";
+        // die WWW::Zitadel::Error::Validation->new(
+            message => 'No jwks_uri in discovery document',
+        );
 }
 
 sub token_endpoint {
     my $self = shift;
     $self->_discovery->{token_endpoint}
-        // die "No token_endpoint in discovery document\n";
+        // die WWW::Zitadel::Error::Validation->new(
+            message => 'No token_endpoint in discovery document',
+        );
 }
 
 sub userinfo_endpoint {
     my $self = shift;
     $self->_discovery->{userinfo_endpoint}
-        // die "No userinfo_endpoint in discovery document\n";
+        // die WWW::Zitadel::Error::Validation->new(
+            message => 'No userinfo_endpoint in discovery document',
+        );
 }
 
 sub authorization_endpoint {
     my $self = shift;
     $self->_discovery->{authorization_endpoint}
-        // die "No authorization_endpoint in discovery document\n";
+        // die WWW::Zitadel::Error::Validation->new(
+            message => 'No authorization_endpoint in discovery document',
+        );
 }
 
 sub introspection_endpoint {
     my $self = shift;
     $self->_discovery->{introspection_endpoint}
-        // die "No introspection_endpoint in discovery document\n";
+        // die WWW::Zitadel::Error::Validation->new(
+            message => 'No introspection_endpoint in discovery document',
+        );
 }
 
 sub jwks {
@@ -112,10 +130,90 @@ sub jwks {
             message => 'JWKS fetch failed: ' . $res->status_line,
         );
     }
-    my $jwks = decode_json($res->decoded_content);
+    my $jwks = $self->_decode_json_body($res, 'JWKS');
     $self->_jwks_cache($jwks);
     $self->_jwks_fetched(time) if $force;
     return $jwks;
+}
+
+# The body of an answer, shortened for an error message.
+sub _shorten {
+    my ($self, $body) = @_;
+    return undef unless defined $body;
+    return $body if length $body <= $MAX_BODY_IN_ERROR;
+    return substr($body, 0, $MAX_BODY_IN_ERROR) . '...';
+}
+
+# The parsed body of a successful answer. A body that is not JSON - the
+# error page of a proxy, a wrong issuer URL - is a fault of the server, so
+# it is reported as an API error and not as a failed call.
+sub _decode_json_body {
+    my ($self, $res, $label) = @_;
+
+    my $body = $res->decoded_content;
+    my $data = eval { decode_json($body) };
+    if ($@) {
+        my $reason = $@;
+        chomp $reason;
+        die WWW::Zitadel::Error::API->new(
+            message     => $label . ' response is not valid JSON: ' . $reason,
+            http_status => $res->status_line,
+            api_message => $self->_shorten($body),
+        );
+    }
+    return $data;
+}
+
+# LWP marks an answer it could not deliver itself - a refused connection, a
+# timeout - with the status 500 and the header "Client-Warning: Internal
+# response". A server that answers with an error is a different case: the
+# server did answer, and the body it sent says why.
+sub _is_internal_response {
+    my ($self, $res) = @_;
+
+    my $warning = eval { $res->header('Client-Warning') };
+    return 0 unless defined $warning && $warning =~ /Internal response/i;
+
+    my $status = $res->status_line // '';
+    return $status =~ /^500\b/ ? 1 : 0;
+}
+
+# The OAuth error of a failed answer: the description if the body carries
+# one, the error code otherwise, the raw body if it is not JSON at all.
+sub _api_message {
+    my ($self, $res) = @_;
+
+    my $body = $res->decoded_content;
+    return undef unless defined $body && length $body;
+
+    my $data = eval { decode_json($body) };
+    if (ref $data eq 'HASH') {
+        for my $field (qw(error_description error)) {
+            my $value = $data->{$field};
+            next unless defined $value && !ref $value && length $value;
+            return $value;
+        }
+    }
+    return $self->_shorten($body);
+}
+
+# The exception for an endpoint that did not answer successfully. The
+# message stays exactly as it has always been, so that callers matching on
+# the error string keep working.
+sub _endpoint_error {
+    my ($self, $res, $label) = @_;
+
+    my $message = $label . ' failed: ' . $res->status_line;
+
+    if ($self->_is_internal_response($res)) {
+        return WWW::Zitadel::Error::Network->new(message => $message);
+    }
+
+    return WWW::Zitadel::Error::API->new(
+        message     => $message,
+        http_status => $res->status_line,
+        api_message => $self->_api_message($res),
+    );
 }
 
 sub verify_token {
@@ -180,11 +278,9 @@ sub userinfo {
         Authorization => "Bearer $access_token",
     );
     unless ($res->is_success) {
-        die WWW::Zitadel::Error::Network->new(
-            message => 'UserInfo failed: ' . $res->status_line,
-        );
+        die $self->_endpoint_error($res, 'UserInfo');
     }
-    return decode_json($res->decoded_content);
+    return $self->_decode_json_body($res, 'UserInfo');
 }
 
 sub introspect {
@@ -206,11 +302,9 @@ sub introspect {
         },
     );
     unless ($res->is_success) {
-        die WWW::Zitadel::Error::Network->new(
-            message => 'Introspection failed: ' . $res->status_line,
-        );
+        die $self->_endpoint_error($res, 'Introspection');
     }
-    return decode_json($res->decoded_content);
+    return $self->_decode_json_body($res, 'Introspection');
 }
 
 sub token {
@@ -228,11 +322,9 @@ sub token {
         },
     );
     unless ($res->is_success) {
-        die WWW::Zitadel::Error::Network->new(
-            message => 'Token endpoint failed: ' . $res->status_line,
-        );
+        die $self->_endpoint_error($res, 'Token endpoint');
     }
-    return decode_json($res->decoded_content);
+    return $self->_decode_json_body($res, 'Token endpoint');
 }
 
 sub client_credentials_token {
@@ -336,6 +428,13 @@ Token verification fetches the keys again when a token names a key the
 client does not know, which handles key rotation. Every other rejection is
 thrown unchanged and does not cost a request to the issuer.
 
+A failed call raises a L<WWW::Zitadel::Error> subclass: a missing argument or
+a discovery document without the needed endpoint is a
+L<WWW::Zitadel::Error::Validation>, an answer that was not successful is a
+L<WWW::Zitadel::Error::API> carrying C<http_status> and C<api_message> (the
+OAuth C<error_description> or C<error> of the body), and a request that never
+reached a server is a L<WWW::Zitadel::Error::Network>.
+
 =attr issuer
 
 Required. The Zitadel issuer URL, e.g. C<https://zitadel.example.com>.
@@ -396,6 +495,10 @@ accepted; C<accepted_alg> wins if both are given.
 Calls the UserInfo endpoint with the given access token. Returns parsed
 JSON response.
 
+An answer that was not successful throws L<WWW::Zitadel::Error::API> with
+the status line in C<http_status> and the OAuth error of the body in
+C<api_message>.
+
 =method introspect
 
     my $info = $oidc->introspect($token,
@@ -405,6 +508,10 @@ JSON response.
 
 Calls the token introspection endpoint. Requires C<client_id> and
 C<client_secret> for authentication.
+
+An answer that was not successful throws L<WWW::Zitadel::Error::API> with
+the status line in C<http_status> and the OAuth error of the body in
+C<api_message>.
 
 =method token
 
@@ -417,6 +524,11 @@ C<client_secret> for authentication.
 
 Generic token endpoint helper. Sends a form-encoded POST to the discovered
 C<token_endpoint> and returns parsed JSON.
+
+An answer that was not successful throws L<WWW::Zitadel::Error::API> with
+the status line in C<http_status> and the OAuth error of the body in
+C<api_message>, so that C<invalid_grant> can be told apart from
+C<invalid_client>.
 
 =method client_credentials_token
 
