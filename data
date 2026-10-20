@@ -1,0 +1,29 @@
+---
+claimed_at: 2026-10-20T04:20:14Z
+claimed_by: k5-k8
+class: standard
+completed: 2026-10-20T04:20:14Z
+created: 2026-10-06T19:19:16Z
+id: 8
+priority: low
+started: 2026-10-20T03:46:16Z
+status: done
+tags:
+- hygiene
+- cpanfile
+- tls
+- review-2026-10-06
+title: 'cpanfile: LWP::Protocol::https is not declared'
+updated: 2026-10-20T04:20:14Z
+---
+
+`cpanfile` requires `LWP::UserAgent` only. Every real issuer is an `https://` URL (SYNOPSIS, README), and without `LWP::Protocol::https` a fresh install fails at the first request with `Protocol scheme 'https' is not supported`. The sibling `p5-www-authentik/cpanfile` declares it.
+
+Done: `requires 'LWP::Protocol::https';` in `cpanfile`, Changes line.
+
+---
+Fleet review 2026-10-06 · kind: hygiene · confidence: verified
+
+2026-10-20 04:05 Implemented: cpanfile requires LWP::Protocol::https (core LWP module that registers the https scheme). Changes entry added under {{$NEXT}}. No test: a dependency declaration has no runtime behaviour to assert (a test would only restate the cpanfile). Suite: 408 tests green. Commit 6dd47c7.
+
+2026-10-20 04:19 cpanfile deklariert jetzt requires 'LWP::Protocol::https'; ohne das erreicht eine frische Installation keinen Issuer auf https://. Commit 6dd47c7.
