@@ -1,0 +1,42 @@
+---
+claimed_at: 2026-10-20T04:20:03Z
+claimed_by: k5-k8
+class: standard
+completed: 2026-10-20T04:20:03Z
+created: 2026-10-06T19:19:07Z
+id: 6
+priority: medium
+started: 2026-10-20T03:46:04Z
+status: done
+tags:
+- bug
+- oidc
+- errors
+- review-2026-10-06
+title: 'OIDC error paths: OAuth errors arrive as Error::Network with only a status
+  line; missing endpoints die with plain strings'
+updated: 2026-10-20T04:20:03Z
+---
+
+Three inconsistencies in `lib/WWW/Zitadel/OIDC.pm` against the error hierarchy the dist documents (`Error::Validation` / `Error::Network` / `Error::API`):
+
+1. `token` (line 204-208), `introspect` (182-186) and `userinfo` (156-160) throw `WWW::Zitadel::Error::Network` for every non-2xx answer. A 400 `{"error":"invalid_grant","error_description":...}` or a 401 from the token endpoint is not a network problem, and the body is thrown away: the caller sees only `Token endpoint failed: 400 Bad Request` and cannot tell `invalid_grant` from `invalid_client` or `authorization_pending`.
+2. `jwks_uri`, `token_endpoint`, `userinfo_endpoint`, `authorization_endpoint`, `introspection_endpoint` (lines 53-81) die with bare strings (`"No jwks_uri in discovery document\n"`), so `$err->isa('WWW::Zitadel::Error')` is false for them.
+3. `decode_json($res->decoded_content)` (lines 42, 97, 161, 187, 209) is unguarded: a 200 with an HTML body (proxy, wrong issuer URL) dies with a raw JSON parser message.
+
+Done: non-2xx answers from the three endpoints raise `Error::API` with `http_status`, the OAuth `error`/`error_description` in `api_message`; `Error::Network` stays for LWP's internal 500 (`Client-Warning: Internal response`); missing discovery keys and undecodable bodies raise `Error::Validation`/`Error::API`; tests for each. Mirror in p5-net-async-zitadel (`Net/Async/Zitadel/OIDC.pm:230,274,310`).
+
+---
+Fleet review 2026-10-06 · kind: bug · confidence: verified
+
+2026-10-20 04:11 Implemented (commit 03b0785): token, introspect and userinfo raise WWW::Zitadel::Error::API for every answer that was not successful; http_status carries the status line, api_message the OAuth error_description, else the error, else the raw body shortened to 200 characters. The message stays byte-identical ('Token endpoint failed: 400 Bad Request', 'Introspection failed: ...', 'UserInfo failed: ...'). A missing endpoint in the discovery document raises Error::Validation with the same wording; every decode_json (discovery, JWKS, the three endpoints) is guarded and a body that is not JSON raises Error::API with the parser error in the message. Error::Network stays for the LWP internal response (status 500 + header 'Client-Warning: Internal response'). Tests: new t/05-oidc-errors.t with 52 tests, red against the old lib (36 of 52 failed, all behavioural); suite green with 474 tests.
+
+2026-10-20 04:12 Decisions taken where the card left room: (1) The internal LWP response is recognized by the 'Client-Warning: Internal response' header together with status 500 - a server that answers with 500 without that header is an API error. (2) A missing discovery key keeps the wording but loses the trailing newline: the newline was the Perl 'die "...\n"' convention and has no place in the message of an exception object. (3) The raw body in api_message is shortened to 200 characters, so an HTML error page cannot flood a log line.
+
+2026-10-20 04:12 Also found: the POD of WWW::Zitadel::Error still describes Error::Network as 'non-success response on OIDC endpoints' and Error::API as thrown for the Management API only - both are now wider. Not changed here, the brief excluded a change to WWW::Zitadel::Error (k4 is already in review on that file).
+
+2026-10-20 04:12 Also found: token() reads its grant_type with 'delete $args{grant_type} // die ...' - the string '0' would be taken as missing. Out of scope for this card, not changed.
+
+2026-10-20 04:12 Also found: p5-net-async-zitadel needs the same change (Net/Async/Zitadel/OIDC.pm:230,274,310) - own card on that board, not touched here.
+
+2026-10-20 04:19 token, introspect und userinfo werfen bei jeder nicht-2xx-Antwort jetzt WWW::Zitadel::Error::API: http_status traegt die Statuszeile, api_message den OAuth-Fehler (error_description, sonst error, sonst gekuerzter Rohbody). Die message bleibt zeichengleich, damit bestehende Vergleiche weiter gelten. Error::Network bleibt nur fuer eine LWP-interne Antwort (Client-Warning: Internal response, 500). Fehlende Discovery-Schluessel werfen Error::Validation mit unveraendertem Wortlaut, unlesbare Bodies werfen Error::API statt einer nackten Parser-Meldung. Roter Beweis: t/05-oidc-errors.t und t/02-oidc.t sind gegen das alte lib/ rot. Commit 03b0785. Folgekarte k9: die POD von WWW::Zitadel::Error beschreibt noch die alte Arbeitsteilung.
