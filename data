@@ -1,0 +1,24 @@
+---
+claimed_at: 2026-10-20T03:42:24Z
+claimed_by: opus-hub
+class: standard
+completed: 2026-10-20T03:42:24Z
+created: 2026-09-10T03:47:43Z
+id: 4
+priority: medium
+started: 2026-09-14T05:08:56Z
+status: done
+tags:
+- release
+- refactor
+title: 'Error.pm: one package per file (versionless sub-classes)'
+updated: 2026-10-20T10:15:14Z
+---
+
+lib/WWW/Zitadel/Error.pm defines 4 packages (Error, Error::Validation, Error::Network, Error::API). Only the first has our $VERSION; the three sub-classes are versionless in code. dzil build/test warns: "3 provide map entries did not map to .pm files". Per getty-perl-release-author-getty, one package per file: BumpVersionAfterRelease rewrites only the first $VERSION, so a manual per-package $VERSION would freeze while META bumps -> silent code/META disagreement. Correct fix = split into Error/Validation.pm, Error/Network.pm, Error/API.pm and update t/00-load.t. Pre-existing since 0.001 (not a 0.002 regression), non-blocking. NOTE: mirror the split in async twin p5-net-async-zitadel.
+
+Split in Error/{Validation,Network,API}.pm, Basis laedt sie weiter (rueckwaertskompat). prove -lr t gruen (387), dzil build warnungsfrei. Commit a95d6fd. Mirror im async-Twin folgt.
+
+2026-10-20 03:42 Von der Koordination geprueft (2026-10-20): der Split ist auf main (a95d6fd), lib/WWW/Zitadel/Error/{Validation,Network,API}.pm existieren und die Basis WWW::Zitadel::Error laedt sie weiter. Volle Suite offline gruen (prove -lr t/: 7 Dateien, 408 Tests), dzil build ohne provide-map-Warnung (WWW-Zitadel-0.002 gebaut).
+
+2026-10-20 Nachpruefung der Koordination: zwei Eintraege des unreleased Blocks standen mit 79 und 80 Spalten ueber der Hausgrenze von 78. Die Datei wurde umgebrochen, ohne ein Wort zu aendern; der Unterpunkt bei den Identity Providern bleibt ein Unterpunkt. Commit d27f3c7.
