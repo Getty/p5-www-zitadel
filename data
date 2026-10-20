@@ -1,0 +1,89 @@
+---
+class: standard
+completed: 2026-10-20T17:04:36Z
+created: 2026-10-20T16:26:26Z
+id: 10
+priority: medium
+started: 2026-10-20T17:04:36Z
+status: done
+tags:
+- release
+- prereq
+title: Ein Test, der die Voraussetzungen haelt, fehlt
+updated: 2026-10-20T17:04:36Z
+---
+
+Ein Test, der die Voraussetzungen haelt, fehlt.
+
+Andere Distributionen der WWW-Flotte pruefen mit t/cpanfile.t, dass jede
+Bibliothek, die der Code laedt, im cpanfile genannt ist. In diesem Repo gibt
+es keinen solchen Test: eine verlorene Voraussetzung faellt dann erst beim
+Laden der Bibliothek auf einer Maschine auf, auf der das Modul fehlt - nicht
+beim Bauen.
+
+Der Test entsteht neu nach dem Hausmuster (siehe p5-www-hetzner,
+p5-www-idrac, p5-www-keycloak): er liest das cpanfile, trennt die
+Laufzeit-Phase von der Test-Phase und haelt eine hart kodierte Liste fest -
+je Voraussetzung ein ok(). Wo Modul und Distribution auseinanderlaufen, zaehlt
+die Distribution: der Test akzeptiert deshalb beide Formen (in Klammern die
+zulaessigen Namen im cpanfile).
+
+Laufzeit:
+  Crypt::JWT
+  HTTP::Request (HTTP::Request, HTTP::Message)
+  JSON::MaybeXS
+  LWP::Protocol::https
+  LWP::UserAgent
+  Moo
+  URI::Escape (URI::Escape, URI)
+  namespace::clean
+
+Test:
+  Crypt::JWT
+  Crypt::PK::ECC (Crypt::PK::ECC, CryptX)
+  Crypt::PK::RSA (Crypt::PK::RSA, CryptX)
+  HTTP::Request (HTTP::Request, HTTP::Message)
+  JSON::MaybeXS
+  Moo
+  Test::Exception
+  Test::More
+
+Regeln fuer den Test:
+- Eine Laufzeit-Voraussetzung muss in der Laufzeit-Phase stehen; ein Eintrag
+  nur in der Test-Phase installiert sie beim Anwenden nicht.
+- Eine Test-Voraussetzung wird akzeptiert, wenn sie in der Test-Phase oder in
+  der Laufzeit-Phase steht - die Laufzeit-Phase wird immer installiert.
+- Kernmodule gehoeren nicht in die Liste. Die Testhelfer im Repo (MockUA,
+  MockForgejo, Test::WWW::MikroTik::MockUA) sind keine Voraussetzungen.
+
+Am cpanfile:
+Alle genannten Voraussetzungen sind heute schon genannt, es fehlt nur
+der Test. Zusaetzlich steht das cpanfile nicht in der Hausform: die
+Voraussetzungen sind nicht alphabetisch. Bring Laufzeit-Block und Test-Block
+in die alphabetische Reihenfolge; die Mindestversionen bleiben unberuehrt
+(hier gibt es keine).
+
+Der rote Beweis: der Test muss gegen das alte cpanfile rot sein. Belege ihn so
+und nenne das Ergebnis in der Abschlussmeldung:
+
+    cd <worktree>
+    cp cpanfile cpanfile.bak
+    git show main:cpanfile > cpanfile
+    prove -lr t/cpanfile.t     # muss rot sein
+    mv cpanfile.bak cpanfile
+    prove -lr t/cpanfile.t     # muss gruen sein
+
+cpanfile.bak ist nur eine Sicherung: sie wird nicht committet und am Ende
+geloescht.
+
+Aenderungen ausserhalb von cpanfile, t/cpanfile.t und Changes: nicht.
+Ein Changes-Eintrag unter {$NEXT} (ohne Kartennummern, bei 78 Spalten
+umbrochen). Commit-Betreff nennt die Karte als (k10), kein #10.
+
+2026-10-20 17:02 Umsetzung: t/cpanfile.t neu nach Hausmuster (p5-www-gitea: Laufzeit-/Test-Phase getrennt, Modul vs. Distribution, Alphabetik-Pruefung). cpanfile in die alphabetische Hausform gebracht (Laufzeit-Block und Test-Block, case-insensitiv: Crypt::JWT, HTTP::Request, JSON::MaybeXS, LWP::Protocol::https, LWP::UserAgent, MIME::Base64, Moo, namespace::clean, URI::Escape / Crypt::PK::ECC, Crypt::PK::RSA, Test::Exception, Test::More); Mindestversionen unberuehrt (keine vorhanden). Roter Beweis: gegen das alte cpanfile aus main rot (2 Fehler: 'the runtime prereqs stand in alphabetical order', 'the test prereqs stand in alphabetical order'; 18 Tests, 2 failed); mit dem neuen cpanfile gruen (18/18). Volle Suite: prove -lr t -> 501 Tests, 9 Dateien, gruen, live/k8s wie ueblich uebersprungen. Commit e817319 auf Branch k10-zitadel.
+
+2026-10-20 17:02 Also found: das cpanfile nennt keine Mindestversion fuer perl, waehrend die Haus-Dists der Flotte (p5-www-gitea, p5-www-keycloak, p5-www-idrac) 'requires perl, 5.020;' fuehren. Nicht angefasst - ausserhalb des Auftrags.
+
+2026-10-20 17:02 Fertig: t/cpanfile.t neu (Prerequisite-Test nach Hausmuster: Laufzeit-Phase, Test-Phase, Modul/Distribution, Alphabetik), cpanfile alphabetisch sortiert, Changes-Eintrag. Roter Beweis gegen das alte cpanfile erbracht (2 Failures), Suite gruen (501 Tests). Commit e817319 auf Branch k10-zitadel.
+
+Koordination: der Commit e817319 steht auf main (ff-only gemergt). Der rote Beweis wurde nachgeprueft: gegen das alte cpanfile aus main sind 2 von 18 Tests rot (die alphabetische Reihenfolge der Laufzeit- und der Test-Phase), mit dem neuen cpanfile sind alle 18 gruen. Suite offline: 9 Dateien, 501 Tests, PASS.
