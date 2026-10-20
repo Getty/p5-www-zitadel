@@ -1,5 +1,6 @@
 requires 'Moo';
 requires 'LWP::UserAgent';
+requires 'LWP::Protocol::https';
 requires 'HTTP::Request';
 requires 'JSON::MaybeXS';
 requires 'Crypt::JWT';

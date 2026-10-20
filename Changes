@@ -1,6 +1,8 @@
 Revision history for WWW-Zitadel
 
 {{$NEXT}}
+    - Declare LWP::Protocol::https in the cpanfile: without it a fresh
+      installation cannot reach an issuer on https://.
     - Security: `verify_token` enforces its signature algorithm allow-list. A
       token signed with an algorithm outside the list (default RS256, RS384,
       RS512) is rejected even when its key is in the JWKS; widen the list for
