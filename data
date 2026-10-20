@@ -1,0 +1,17 @@
+---
+class: standard
+created: 2026-08-09T16:40:49Z
+id: 3
+priority: high
+status: backlog
+tags:
+- sync
+- twin
+- parity
+title: 'Sync async-twin p5-net-async-zitadel: Fassade-ua + neue Management-Methoden'
+updated: 2026-10-20T05:11:56Z
+---
+
+Die Sync-Fassade WWW::Zitadel hat ein neues ua-Attribut erhalten, das an oidc+management weitergegeben wird (Connection Pooling durch die Fassade). Zudem werden vier Management-API-Feature-Gruppen ergaenzt: (1) User Grants Lifecycle (update/deactivate/reactivate/delete_user_grant), (2) weitere IdP-Typen (jwt/google/azuread/github/github_enterprise/gitlab/apple/ldap), (3) Project Roles update/remove + SAML/API Apps, (4) Org Domains + User Lifecycle (lock/unlock/email-verify/reactivate_org). Der async-Zwilling p5-net-async-zitadel muss Paritaet halten: _f-Aequivalente fuer jede neue Methode und ein ua-Aequivalent an der Fassade. Nicht von p5-www-zitadel aus editieren.
+
+2026-10-20 Koordination: Diese Karte bleibt im Backlog. Sie sagt selbst, dass sie nicht von p5-www-zitadel aus zu bearbeiten ist - der async-Zwilling p5-net-async-zitadel muss die Paritaet halten (ua an der Fassade, _f-Aequivalente fuer die neuen Management-Methoden). Das ist ein eigenes Repo mit eigenem Board und gehoert in die async-Kampagne, nicht in diese p5-www-Kampagne. Karte und Inhalt bleiben unveraendert dort liegen, bis der Zwilling drankommt.
