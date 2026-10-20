@@ -1,0 +1,40 @@
+---
+claimed_at: 2026-10-20T04:19:58Z
+claimed_by: k5-k8
+class: standard
+completed: 2026-10-20T04:19:58Z
+created: 2026-10-06T19:19:02Z
+id: 5
+priority: medium
+started: 2026-10-20T03:45:59Z
+status: done
+tags:
+- bug
+- security
+- oidc
+- review-2026-10-06
+title: verify_token refetches the JWKS on every rejected token
+updated: 2026-10-20T04:19:58Z
+---
+
+`lib/WWW/Zitadel/OIDC.pm:121-134`: `if ($@ && !$args{no_retry})` forces `jwks(force_refresh => 1)` after *any* decode failure - expired token, wrong issuer, wrong audience, bad signature, garbage. Only an unknown `kid` can be cured by new keys.
+
+Consequences:
+
+- Every invalid bearer token a service receives costs one blocking HTTP request to Zitadel. Anyone who can send requests can make the service hammer the IdP (and block its own workers for up to the 10 s / 30 s UA timeout).
+- If that refresh fails, the caller gets `Error::Network: JWKS fetch failed` instead of the real reason the token was rejected.
+
+The newer siblings solved this: `WWW::Authentik::OIDC::verify_token` refreshes only on `kid_keys lookup failed` and not more often than `jwks_min_age` (`p5-www-authentik/lib/WWW/Authentik/OIDC.pm:256`).
+
+Done: refresh only when the failure is the kid lookup, rate-limited by a minimum age; all other failures are thrown as they are. Tests: an expired token causes no second JWKS GET; an unknown kid causes exactly one. Same change in p5-net-async-zitadel.
+
+---
+Fleet review 2026-10-06 · kind: bug · confidence: verified
+
+2026-10-20 04:07 Implemented: verify_token fetches the keys again only when Crypt::JWT reports 'kid_keys lookup failed'; every other rejection is thrown unchanged and costs no request. New attribute jwks_min_age (is => ro, default 60) with POD, private attribute _jwks_fetched. Decision (coordinator rule left room here): _jwks_fetched records the last *forced* fetch, so the first cached fetch does not start the rate-limit window - otherwise a fresh process could not refresh at all in its first 60s and the card's 'unknown kid causes exactly one JWKS GET' would never hold. Tests (t/02-oidc.t, t/04-oidc-verify-alg.t) were red against the old lib (6 + 1 failures, all behavioural), green after the fix. Suite: 422 tests green. Commit a7282f6.
+
+2026-10-20 04:07 Also found: the rejection of verify_token is not a WWW::Zitadel::Error instance - Crypt::JWT dies with a plain string, so $@->isa('WWW::Zitadel::Error') is false for a rejected token. Not changed here (the card only asks for the refresh behaviour); the exception family was deliberately left alone.
+
+2026-10-20 04:07 Also found: p5-net-async-zitadel needs the same change (Net::Async::Zitadel::OIDC::verify_token) - own card on that board, not touched here.
+
+2026-10-20 04:19 verify_token holt die JWKS nur noch bei unbekanntem kid nach (Crypt::JWT-Fehler 'kid_keys lookup failed'); alle anderen Ablehnungen (abgelaufen, falscher Issuer, falsches Audience, falsche Signatur) kosten keinen Request mehr und kommen unverändert nach oben. Neu: Attribut jwks_min_age (ro, Default 60s, mit POD), der Refresh erfolgt höchstens einmal je jwks_min_age. Roter Beweis: t/02-oidc.t ist gegen das alte lib/ rot (Verhaltensfehler, kein Fundfehler). Commit a7282f6. Folgebefund: der Verify-Pfad ist weiterhin kein WWW::Zitadel::Error, sondern ein Crypt::JWT-String (notiert als 'Also found').
