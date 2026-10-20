@@ -132,7 +132,8 @@ sub _success_json {
     is scalar @{ $ua->calls->{get} }, 3, 'discovery + 2 JWKS GET calls';
 }
 
-# verify_token retries once after JWKS refresh when initial verification fails.
+# verify_token fetches the keys again when the token names a key the client
+# does not know - the only rejection that new keys can cure.
 {
     my $ua = Local::OIDCUA->new(
         get_queue => [
@@ -152,18 +153,99 @@ sub _success_json {
             my ($self, %args) = @_;
             $decode_calls++;
             push @seen_kids, $args{kid_keys}{keys}[0]{kid};
-            die "signature check failed" if $decode_calls == 1;
+            die "JWS: kid_keys lookup failed" if $decode_calls == 1;
             return { sub => 'user-1' };
         },
     );
 
     my $claims = $oidc->verify_token('token-value');
-    is_deeply $claims, { sub => 'user-1' }, 'verify_token returns claims after retry';
-    is $decode_calls, 2, 'decode_jwt called twice due to retry';
-    is_deeply \@seen_kids, [ 'old', 'new' ], 'retry uses refreshed JWKS';
+    is_deeply $claims, { sub => 'user-1' }, 'verify_token returns claims after the key refresh';
+    is $decode_calls, 2, 'decode_jwt called twice due to the key refresh';
+    is_deeply \@seen_kids, [ 'old', 'new' ], 'the refresh uses the new JWKS';
+    is scalar @{ $ua->calls->{get} }, 3, 'exactly one extra JWKS GET for the unknown kid';
 }
 
-# no_retry disables JWKS refresh retry.
+# A rejection that new keys cannot cure - an expired token, the wrong issuer,
+# a bad signature - is thrown unchanged and does not cost a request.
+{
+    my $ua = Local::OIDCUA->new(
+        get_queue => [
+            _success_json(_discovery_json()),
+            _success_json({ keys => [ { kid => 'old' } ] }),
+            _success_json({ keys => [ { kid => 'new' } ] }),
+        ],
+    );
+
+    my $decode_calls = 0;
+
+    my $oidc = Local::MockOIDC->new(
+        issuer  => 'https://zitadel.example.com',
+        ua      => $ua,
+        decoder => sub {
+            $decode_calls++;
+            die "Token has expired";
+        },
+    );
+
+    throws_ok { $oidc->verify_token('token-value') }
+        qr/Token has expired/, 'the original rejection is thrown unchanged';
+    is $decode_calls, 1, 'the token is decoded once';
+    is scalar @{ $ua->calls->{get} }, 2, 'an expired token causes no second JWKS GET';
+}
+
+# The refresh is rate limited: a second token with an unknown key within
+# jwks_min_age does not fetch the keys again.
+{
+    my $ua = Local::OIDCUA->new(
+        get_queue => [
+            _success_json(_discovery_json()),
+            _success_json({ keys => [ { kid => 'old' } ] }),
+            _success_json({ keys => [ { kid => 'new' } ] }),
+            _success_json({ keys => [ { kid => 'newer' } ] }),
+        ],
+    );
+
+    my $oidc = Local::MockOIDC->new(
+        issuer  => 'https://zitadel.example.com',
+        ua      => $ua,
+        decoder => sub { die "JWS: kid_keys lookup failed" },
+    );
+
+    throws_ok { $oidc->verify_token('token-1') }
+        qr/kid_keys lookup failed/, 'the first token with an unknown key is rejected';
+    throws_ok { $oidc->verify_token('token-2') }
+        qr/kid_keys lookup failed/, 'the second token with an unknown key is rejected';
+
+    is scalar @{ $ua->calls->{get} }, 3, 'only one JWKS refresh within jwks_min_age';
+}
+
+# jwks_min_age => 0 lets every unknown key trigger a refresh.
+{
+    my $ua = Local::OIDCUA->new(
+        get_queue => [
+            _success_json(_discovery_json()),
+            _success_json({ keys => [ { kid => 'old' } ] }),
+            _success_json({ keys => [ { kid => 'new' } ] }),
+            _success_json({ keys => [ { kid => 'newer' } ] }),
+        ],
+    );
+
+    my $oidc = Local::MockOIDC->new(
+        issuer       => 'https://zitadel.example.com',
+        ua           => $ua,
+        jwks_min_age => 0,
+        decoder      => sub { die "JWS: kid_keys lookup failed" },
+    );
+
+    throws_ok { $oidc->verify_token('token-1') }
+        qr/kid_keys lookup failed/, 'the first token with an unknown key is rejected';
+    throws_ok { $oidc->verify_token('token-2') }
+        qr/kid_keys lookup failed/, 'the second token with an unknown key is rejected';
+
+    is scalar @{ $ua->calls->{get} }, 4, 'every unknown key refreshes the keys';
+}
+
+# no_retry disables the key refresh.
 {
     my $ua = Local::OIDCUA->new(
         get_queue => [
@@ -176,11 +258,11 @@ sub _success_json {
     my $oidc = Local::MockOIDC->new(
         issuer => 'https://zitadel.example.com',
         ua     => $ua,
-        decoder => sub { die "always bad" },
+        decoder => sub { die "JWS: kid_keys lookup failed" },
     );
 
     throws_ok { $oidc->verify_token('token-value', no_retry => 1) }
-        qr/always bad/, 'no_retry keeps original decode error';
+        qr/kid_keys lookup failed/, 'no_retry keeps original decode error';
 
     is scalar @{ $ua->calls->{get} }, 2, 'no JWKS refresh when no_retry is set';
 }
@@ -391,10 +473,12 @@ sub _success_json {
 
     throws_ok { $oidc->verify_token('some.jwt.token') }
         qr/no matching key found/, 'empty JWKS keys array causes verify_token to die';
+    is scalar @{ $ua->calls->{get} }, 2, 'no JWKS refresh for a token without a matching key';
 }
 
 # Token with missing required claims: decoder receives the JWKS but dies on
-# claim validation; the error propagates after the retry attempt.
+# claim validation; the error propagates unchanged, because new keys cannot
+# cure a missing claim.
 {
     my $decode_calls = 0;
 
@@ -416,8 +500,9 @@ sub _success_json {
     );
 
     throws_ok { $oidc->verify_token('some.jwt.token') }
-        qr/missing required claim: sub/, 'missing claim error propagates after retry';
-    is $decode_calls, 2, 'decoder called twice (initial + retry) for missing-claim error';
+        qr/missing required claim: sub/, 'missing claim error propagates unchanged';
+    is $decode_calls, 1, 'the token is decoded once - a missing claim is not cured by new keys';
+    is scalar @{ $ua->calls->{get} }, 2, 'no JWKS refresh for a token with a missing claim';
 }
 
 # Discovery endpoint returning incomplete document: missing jwks_uri.

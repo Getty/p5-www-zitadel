@@ -102,13 +102,31 @@ for my $alg (qw(PS256 ES256)) {
         "$alg token is rejected by default";
 }
 
-# The allow-list also holds on the second pass after the JWKS refresh.
+# A token that is rejected for its algorithm is not cured by new keys, so the
+# keys are not fetched again.
 {
     my $oidc = _oidc();
     throws_ok { $oidc->verify_token(_token('PS256')) }
         qr/alg 'PS256' not in accepted_alg/,
-        'PS256 token is rejected by default after the JWKS refresh retry';
-    is _jwks_fetches($oidc), 2, 'the retry pass ran';
+        'PS256 token is rejected by default';
+    is _jwks_fetches($oidc), 1, 'the rejection did not fetch the keys again';
+}
+
+# A token that names a key the JWKS does not have makes the keys be fetched
+# again - the one rejection that new keys can cure.
+{
+    my $oidc = _oidc();
+    my $token = encode_jwt(
+        payload       => { iss => $ISSUER, sub => 'user-unknown', exp => time + 300 },
+        alg           => 'RS256',
+        key           => $rsa,
+        extra_headers => { kid => 'not-in-the-jwks' },
+    );
+
+    throws_ok { $oidc->verify_token($token) }
+        qr/kid_keys lookup failed/,
+        'a token with an unknown kid is rejected';
+    is _jwks_fetches($oidc), 2, 'the keys were fetched once more for the unknown kid';
 }
 
 # Callers widen the list with accepted_alg ...

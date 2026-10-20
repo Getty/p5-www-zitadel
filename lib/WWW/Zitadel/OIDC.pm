@@ -48,6 +48,24 @@ has _jwks_cache => (
     default => sub { undef },
 );
 
+# Seconds that have to pass between two refreshes of the keys. A token that
+# names a key this client does not know makes the keys be fetched again, but
+# not more often than this: a stream of forged tokens must not become a
+# stream of requests to the issuer.
+has jwks_min_age => (
+    is      => 'ro',
+    default => 60,
+);
+
+# When the keys were fetched the last time because a token named an unknown
+# key. The first, cached fetch does not count: the first token with an
+# unknown key has to be able to trigger a refresh right away.
+has _jwks_fetched => (
+    is       => 'rw',
+    init_arg => undef,
+    default  => sub { 0 },
+);
+
 sub discovery { $_[0]->_discovery }
 
 sub jwks_uri {
@@ -96,6 +114,7 @@ sub jwks {
     }
     my $jwks = decode_json($res->decoded_content);
     $self->_jwks_cache($jwks);
+    $self->_jwks_fetched(time) if $force;
     return $jwks;
 }
 
@@ -112,37 +131,36 @@ sub verify_token {
         // $args{accepted_key_alg}
         // ['RS256', 'RS384', 'RS512'];
 
-    my $jwks = $self->jwks;
-    my $claims;
-    eval {
-        $claims = $self->_decode_jwt(
-            token       => $token,
-            kid_keys    => $jwks,
-            verify_exp  => $args{verify_exp} // 1,
-            verify_iat  => $args{verify_iat} // 0,
-            verify_nbf  => $args{verify_nbf} // 0,
-            verify_iss  => $self->issuer,
-            verify_aud  => $args{audience},
-            accepted_alg => $accepted_alg,
-        );
-    };
-    if ($@ && !$args{no_retry}) {
-        # Key rotation: refresh JWKS and retry once
-        $jwks = $self->jwks(force_refresh => 1);
-        $claims = $self->_decode_jwt(
-            token       => $token,
-            kid_keys    => $jwks,
-            verify_exp  => $args{verify_exp} // 1,
-            verify_iat  => $args{verify_iat} // 0,
-            verify_nbf  => $args{verify_nbf} // 0,
-            verify_iss  => $self->issuer,
-            verify_aud  => $args{audience},
-            accepted_alg => $accepted_alg,
-        );
+    my %check = (
+        token        => $token,
+        verify_exp   => $args{verify_exp} // 1,
+        verify_iat   => $args{verify_iat} // 0,
+        verify_nbf   => $args{verify_nbf} // 0,
+        verify_iss   => $self->issuer,
+        verify_aud   => $args{audience},
+        accepted_alg => $accepted_alg,
+    );
+
+    my $jwks   = $self->jwks;
+    my $claims = eval { $self->_decode_jwt(%check, kid_keys => $jwks) };
+    my $error  = $@;
+
+    # Key rotation: only an unknown key can be cured by new keys. Every other
+    # rejection - an expired token, the wrong issuer, a bad signature - is the
+    # token's own fault and must not cost a request to the issuer. The refresh
+    # happens at most once per jwks_min_age, so a stream of forged tokens
+    # does not become a stream of requests either.
+    if (   $error
+        && !$args{no_retry}
+        && $error =~ /kid_keys lookup failed/
+        && time - $self->_jwks_fetched >= $self->jwks_min_age )
+    {
+        $jwks   = $self->jwks(force_refresh => 1);
+        $claims = eval { $self->_decode_jwt(%check, kid_keys => $jwks) };
+        $error  = $@;
     }
-    elsif ($@) {
-        die $@;
-    }
+
+    die $error if $error;
 
     return $claims;
 }
@@ -314,8 +332,9 @@ __END__
 OIDC client for Zitadel. Handles discovery, JWKS fetching, JWT verification
 via L<Crypt::JWT>, and userinfo/introspection endpoints.
 
-Token verification automatically retries with a refreshed JWKS on failure,
-handling key rotation transparently.
+Token verification fetches the keys again when a token names a key the
+client does not know, which handles key rotation. Every other rejection is
+thrown unchanged and does not cost a request to the issuer.
 
 =attr issuer
 
@@ -324,6 +343,12 @@ Required. The Zitadel issuer URL, e.g. C<https://zitadel.example.com>.
 =attr ua
 
 Optional L<LWP::UserAgent> instance. A default one with 10s timeout is created.
+
+=attr jwks_min_age
+
+Seconds that have to pass before L</verify_token> fetches the keys again for
+a token that names an unknown key. Default 60, so that a stream of forged
+tokens does not become a stream of requests to Zitadel.
 
 =method discovery
 
@@ -344,6 +369,12 @@ hashref on success, dies on failure.
 
 Options: C<audience>, C<verify_exp> (default 1), C<verify_iat> (default 0),
 C<verify_nbf> (default 0), C<accepted_alg> (default RS256/384/512).
+
+A token that names a key the JWKS does not have makes the keys be fetched
+again and the token be decoded once more; that happens at most once per
+L</jwks_min_age>. Every other rejection - an expired token, the wrong
+issuer, a bad signature - is thrown unchanged and does not fetch the keys
+again. C<no_retry> turns the refresh off.
 
 C<accepted_alg> is the allow-list of signature algorithms and is passed to
 L<Crypt::JWT> as its C<accepted_alg>: an algorithm name, an arrayref of names

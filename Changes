@@ -3,6 +3,11 @@ Revision history for WWW-Zitadel
 {{$NEXT}}
     - Declare LWP::Protocol::https in the cpanfile: without it a fresh
       installation cannot reach an issuer on https://.
+    - `verify_token` fetches the keys again only when a token names a key the
+      JWKS does not have - the one rejection that new keys can cure. Every
+      other rejection (an expired token, the wrong issuer, a bad signature)
+      is thrown unchanged and costs no request to the issuer. The refresh
+      happens at most once per `jwks_min_age` (default 60 seconds).
     - Security: `verify_token` enforces its signature algorithm allow-list. A
       token signed with an algorithm outside the list (default RS256, RS384,
       RS512) is rejected even when its key is in the JWKS; widen the list for
