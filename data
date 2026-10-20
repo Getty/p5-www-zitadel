@@ -1,0 +1,32 @@
+---
+claimed_at: 2026-10-20T04:20:08Z
+claimed_by: k5-k8
+class: standard
+completed: 2026-10-20T04:20:08Z
+created: 2026-10-06T19:19:12Z
+id: 7
+priority: low
+started: 2026-10-20T03:46:10Z
+status: done
+tags:
+- bug
+- management
+- review-2026-10-06
+title: 'Management: ids are interpolated into the URL path unescaped'
+updated: 2026-10-20T04:20:08Z
+---
+
+`lib/WWW/Zitadel/Management.pm` builds every path by string interpolation, e.g. `$self->_get("/users/$user_id")` (line 111), `_put("/users/$user_id/profile", ...)` (line 142); the file contains no `uri_escape` at all. Zitadel's own ids are numeric, but metadata keys, domain names (`add_org_domain`/`remove_org_domain`), role keys (`update_project_role`/`remove_project_role`) and grant ids are caller-supplied strings. A value with `/`, `?`, `#` or a space changes which endpoint is called (`remove_project_role($project, 'a/../..')`) or produces a malformed request instead of a clean 404.
+
+Done: one `_esc` helper (`URI::Escape::uri_escape_utf8`) applied to every interpolated path segment; a test with a key containing `/` and a space asserts the escaped path. Same change in p5-net-async-zitadel.
+
+---
+Fleet review 2026-10-06 · kind: bug · confidence: verified
+
+2026-10-20 04:15 Implemented (commit 02abcd1): one _esc helper in WWW::Zitadel::Management escapes every interpolated path segment with URI::Escape::uri_escape_utf8 and the safe set '^A-Za-z0-9\-._~*' (the star stays literal). Applied to all 47 interpolations: user, key, key id, project, app, domain, role key, grant id and idp id. 'use URI::Escape qw(uri_escape_utf8);' is present - namespace::clean removes the alias, so the call is fully qualified; URI::Escape is declared in the cpanfile. Test in t/03-management.t asserts the built path: a metadata key 'a/b cü' becomes a%2Fb%20c%C3%BC, a role key, a domain, a grant id and an id are escaped, the star stays literal. Red against the old lib (7 of the 9 new assertions failed), green after the fix; suite 483 tests green.
+
+2026-10-20 04:15 Also found: p5-net-async-zitadel needs the same change (Net/Async/Zitadel/Management.pm) - own card on that board, not touched here.
+
+2026-10-20 04:15 Also found: add_org_domain and list_org_domains put the domain into the request body, not into the path - the body is JSON and needs no escaping. The other domain methods (generate_org_domain_validation, validate_org_domain, set_primary_org_domain, remove_org_domain) put it into the path and are escaped.
+
+2026-10-20 04:19 WWW::Zitadel::Management escaped jetzt jedes in den Pfad interpolierte Segment mit URI::Escape::uri_escape_utf8 (Ausnahmeliste ^A-Za-z0-9\-._~*, das * bleibt literal wie im MikroTik-Mapper). Erfasst sind alle 47 Pfad-Interpolationen: Ids, Metadaten-Schluessel, Domain-Namen, Rollen-Schluessel, Grant-Ids. Roter Beweis: t/03-management.t ist gegen das alte lib/ rot. Commit 02abcd1.
