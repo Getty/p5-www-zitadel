@@ -25,10 +25,12 @@ __END__
 
 =head1 DESCRIPTION
 
-Subclass of L<WWW::Zitadel::Error>. Thrown when the Management API returns a
-non-2xx response. In addition to the inherited C<message> attribute and
-stringification overload, it carries C<http_status> (the status line string)
-and C<api_message> (the C<message> field from the JSON error body, if any).
+Subclass of L<WWW::Zitadel::Error>. Thrown when a request reached the server
+and the answer was not successful: the OIDC endpoints C<token>, C<introspect>
+and C<userinfo> as well as the Management API. In addition to the inherited
+C<message> attribute and stringification overload, it carries C<http_status>
+(the status line string) and C<api_message> (the C<message> field from the
+JSON error body, if any).
 
 =head1 SEE ALSO
 

@@ -14,6 +14,11 @@ Revision history for WWW-Zitadel
       `error` of the body in `api_message`. The error message itself is
       unchanged, so code that matches on the string keeps working. A request
       that never reached a server stays a `WWW::Zitadel::Error::Network`.
+    - The documentation of the error classes follows the code:
+      `WWW::Zitadel::Error::Network` is raised for a request that never
+      reached a server (and for a discovery document or JWKS that cannot be
+      fetched), `WWW::Zitadel::Error::API` for an answer that was not
+      successful from the OIDC and the Management endpoints.
     - A discovery document without the needed endpoint raises
       `WWW::Zitadel::Error::Validation`, and a response body that is not JSON
       raises `WWW::Zitadel::Error::API` instead of a raw parser message.

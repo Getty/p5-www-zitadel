@@ -69,14 +69,17 @@ user_id, etc.).
 
 =item L<WWW::Zitadel::Error::Network>
 
-Thrown when a discovery, JWKS, or other HTTP fetch fails at the transport level
-(connection refused, timeout, non-success response on OIDC endpoints).
+Thrown when a request never reached a server: the connection was refused, the
+name did not resolve, the TLS handshake failed, the request timed out, or the
+HTTP library answered with an internal response. A discovery document or a
+JWKS that cannot be fetched is reported this way as well.
 
 =item L<WWW::Zitadel::Error::API>
 
-Thrown when the Management API returns a non-2xx response. Carries
-C<http_status> (the status line string) and C<api_message> (the C<message>
-field from the JSON error body, if any).
+Thrown when a server answered, but the answer was not successful: the OIDC
+endpoints C<token>, C<introspect> and C<userinfo> as well as the Management
+API. Carries C<http_status> (the status line string) and C<api_message> (the
+C<message> field from the JSON error body, if any).
 
 =back
 
