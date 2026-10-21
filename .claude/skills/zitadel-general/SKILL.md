@@ -40,8 +40,8 @@ Both client repos have identical Management API surface. Async methods are `meth
 
 4. Always validate with:
 ```bash
-cd /storage/raid/home/getty/dev/perl/p5-www-zitadel && prove -lr t
-cd /storage/raid/home/getty/dev/perl/p5-net-async-zitadel && prove -lr t
+prove -lr t
+cd ../p5-net-async-zitadel && prove -lr t
 ```
 
 5. Optional live validation (sync):
