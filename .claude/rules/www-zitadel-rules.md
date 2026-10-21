@@ -14,20 +14,17 @@ speed on non-trivial work; use judgment on trivial tasks. Loaded automatically a
    regression test behind. A test that can't fail when the logic changes is wrong.
 5. **Read before you write** — before new code, read the callers and the sibling module
    (`WWW::Zitadel::OIDC` ↔ `WWW::Zitadel::Management`). "Looks orthogonal" is dangerous.
-6. **Surface conflicts, don't average them** — pick one pattern, explain why, flag the
-   other for cleanup.
+6. **Surface conflicts, don't average them** — pick one pattern, explain why, flag the other for cleanup.
 7. **Checkpoint after every significant step** — done / verified / left.
 8. **Fail loud** — "done" is wrong if anything was skipped silently.
 
 ## Delegation
 
-This rule depends on whether the Agent/Task tool is available to you.
-
 - **You can spawn subagents** (orchestrating main agent): do NOT touch behavior-relevant
   code yourself — delegate to this repo's worker. Your lane: coordinate, inspect, plan,
-  review diffs, run tests, edit non-behavioral docs. When in doubt, delegate.
-  Only the `www-zitadel-*` agents get their skills force-loaded via `briefing.skills`; you
-  get no briefing and would touch internals with too little context.
+  review diffs, run tests, edit non-behavioral docs. When in doubt, delegate. Why: only
+  the `www-zitadel-*` agents get their skills force-loaded; you get no briefing and would
+  touch internals with too little context.
 
   | Task | Agent |
   |---|---|
@@ -39,9 +36,8 @@ This rule depends on whether the Agent/Task tool is available to you.
 - **You cannot spawn subagents** (you ARE a `www-zitadel-*` agent): the delegation lock
   does not apply to you — implement, refactor, debug, and test per these rules.
 
-Behavior-relevant = runtime behavior, the public API (`WWW::Zitadel`, `::OIDC`,
-`::Management`), error handling, the sync/async sibling invariant, tests, performance.
-Pure prose docs and `Changes` notes are not.
+Behavior-relevant = runtime behavior, the public API (`WWW::Zitadel`, `::OIDC`, `::Management`),
+error handling, the sync/async sibling invariant, tests, performance. Pure prose docs and `Changes` notes are not.
 
 **Only `www-zitadel-release-manager` commits.** A worker leaves a commit-ready tree and hands its card
 to `review`; you then dispatch `www-zitadel-release-manager` to cut the commit and close the card.
@@ -52,43 +48,37 @@ Ticket coordination is the orchestrating agent's job, so `karr` is always in sco
 don't invoke the `kanban-issues-karr-coordination` skill first, just use it. Git-native kanban; state lives in
 `refs/karr/*`; this repo has its own board.
 
-- `karr list --compact` / `karr board` — open work · `karr show ID` — detail
-- `karr create "Title" --priority high --tags a,b --body '…'` — new ticket
-- `karr move ID in-progress --claim NAME` — start · `karr handoff ID --claim NAME --note "…"` — to review
+- `karr list --compact` / `karr board` — open work · `karr show ID` — detail · `karr move
+  ID in-progress --claim NAME` — start · `karr handoff ID --claim NAME --note "…"` — to review
 - mutating commands auto-sync; `karr sync --pull|--push` for explicit exchange
 
-**Serialize board mutations when fanning out.** Keep implementation work parallel, but
-collect results and then loop `karr move`/`handoff`/`sync` sequentially — concurrent board
-writes are a resource event, not a cheap command (this shared box has OOM-rebooted on it).
-No background poll loops on the board: check once, act on the result.
+**Serialize board mutations when fanning out.** Keep implementation work parallel, but collect
+results and then loop `karr move`/`handoff`/`sync` sequentially — concurrent board writes are
+a resource event (this shared box has OOM-rebooted on it). No background poll loops: check once, act.
 
 ## Release — never without permission
 
-`prove -lr t` and `dzil build`/`dzil test` are fine anytime. `dzil release` and any CPAN
-upload are STRICTLY forbidden without the maintainer's explicit go-ahead — even if a plan
-or STATUS document lists "release" as the next step. For anything heading toward release:
-stop and ask.
+`prove -lr t` and `dzil build`/`dzil test` are fine anytime. `dzil release` and any CPAN upload
+are STRICTLY forbidden without the maintainer's explicit go-ahead — even if a plan or STATUS
+document lists "release" as the next step. For anything heading toward release: stop and ask.
 
 ## Public issues — never act without instruction
 
 Two trackers, two universes. **karr** is the internal agent work board, churned freely.
-**GitHub** (Getty/p5-www-zitadel) carries real humans' issues, written under the
-maintainer's account. Never act on a GitHub issue on your own initiative — not even to
-read it. No listing, viewing, commenting, editing, closing, or creating unless the user
-explicitly says to handle a specific issue.
+**GitHub** (Getty/p5-www-zitadel) carries real humans' issues, written under the maintainer's
+account. Never act on a GitHub issue on your own initiative — not even to read it: no listing,
+viewing, commenting, editing, closing, or creating unless the user explicitly says to handle a specific issue.
 
 ## Project-specific hazards
 
-- **Live and k8s tests hit real systems.** `t/90-live-zitadel.t` talks to a real ZITADEL
-  instance (opt-in via `ZITADEL_LIVE_TEST=1 ZITADEL_ISSUER=…`); `t/91-k8s-pod.t` hits a
-  real k8s cluster. Both are off by default and run on shared hardware — never run them
-  uncontrolled, and never enable them in a fanned-out/parallel context. A default
-  `prove -lr t` must pass with them skipped.
-- **Sync/async twin.** `p5-net-async-zitadel` mirrors this repo's public API with `_f`
-  suffixes and Futures. An API change here is incomplete until the twin matches — ticket
-  the twin; do not edit the other repo from here.
-- **Test runner trap.** Plain `prove -l t/` is non-recursive; always use `prove -lr t` so
-  subdir tests are never silently skipped (the suite is flat today, keep `-r` anyway).
+- **Live and k8s tests hit real systems.** `t/90-live-zitadel.t` talks to a real ZITADEL instance
+  (opt-in via `ZITADEL_LIVE_TEST=1 ZITADEL_ISSUER=…`); `t/91-k8s-pod.t` hits a real k8s cluster.
+  Both are off by default and run on shared hardware — never run them uncontrolled or fanned out;
+  a default `prove -lr t` must pass with them skipped.
+- **Sync/async twin.** `p5-net-async-zitadel` mirrors this repo's public API with `_f` suffixes and
+  Futures. An API change here is incomplete until the twin matches — ticket the twin, never edit it.
+- **Test runner trap.** Plain `prove -l t/` is non-recursive; always use `prove -lr t` so subdir
+  tests are never silently skipped (the suite is flat today, keep `-r` anyway).
 
 ## Perl specifics — reference, don't restate
 
