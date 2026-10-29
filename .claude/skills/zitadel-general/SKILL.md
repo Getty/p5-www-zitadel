@@ -9,7 +9,7 @@ model: sonnet
 Use this skill when working on ZITADEL-related tasks in this workspace, especially:
 
 - finishing or extending `p5-www-zitadel`
-- integrating ZITADEL into `hi-proto` services
+- integrating ZITADEL into consuming services
 - writing/maintaining tests and docs for OIDC + Management API flows
 - validating live setup in Kubernetes
 
@@ -17,7 +17,6 @@ Use this skill when working on ZITADEL-related tasks in this workspace, especial
 
 - Sync client: `p5-www-zitadel/` — `WWW::Zitadel::*`
 - Async client: `p5-net-async-zitadel/` — `Net::Async::Zitadel::*` (IO::Async, Future-based, `_f` suffix)
-- HI app integration target: `hi-proto/`
 
 Both client repos have identical Management API surface. Async methods are `method_f` returning Futures.
 
