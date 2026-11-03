@@ -2,6 +2,8 @@ package WWW::Zitadel::Error::Validation;
 
 # ABSTRACT: Raised when a required argument is missing or invalid
 
+our $VERSION = '0.002';
+
 use Moo;
 extends 'WWW::Zitadel::Error';
 use namespace::clean;

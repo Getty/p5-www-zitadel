@@ -2,6 +2,8 @@ package WWW::Zitadel::Error::API;
 
 # ABSTRACT: Raised when the ZITADEL API returns a non-successful HTTP response
 
+our $VERSION = '0.002';
+
 use Moo;
 extends 'WWW::Zitadel::Error';
 use namespace::clean;

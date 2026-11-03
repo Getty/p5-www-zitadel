@@ -2,6 +2,8 @@ package WWW::Zitadel::Error::Network;
 
 # ABSTRACT: Raised when an HTTP request fails at the transport level
 
+our $VERSION = '0.002';
+
 use Moo;
 extends 'WWW::Zitadel::Error';
 use namespace::clean;
