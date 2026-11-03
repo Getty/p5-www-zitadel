@@ -1,6 +1,10 @@
 Revision history for WWW-Zitadel
 
 {{$NEXT}}
+    - The Kubernetes deployment helper and its manifests use example values:
+      the domain `zitadel.example.com` and the kubeconfig `~/.kube/config`.
+      `DOMAIN` and `KUBECONFIG_PATH` set your own, as does
+      `ZITADEL_KUBECONFIG` for the pod test.
     - A test holds the prerequisites of the cpanfile: every module the code
       loads is a declared prerequisite, so a lost one fails the build and not
       the first use on a machine where the module is not installed.

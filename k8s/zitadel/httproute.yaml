@@ -9,7 +9,7 @@ spec:
       namespace: kube-system
       sectionName: https
   hostnames:
-    - zitadel.avatar.conflict.industries
+    - zitadel.example.com
   rules:
     - matches:
         - path:

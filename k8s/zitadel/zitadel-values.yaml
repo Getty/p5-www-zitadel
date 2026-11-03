@@ -2,7 +2,7 @@ zitadel:
   masterkey: x123456789012345678901234567891y
   configmapConfig:
     ExternalSecure: true
-    ExternalDomain: zitadel.avatar.conflict.industries
+    ExternalDomain: zitadel.example.com
     ExternalPort: 443
     TLS:
       Enabled: false

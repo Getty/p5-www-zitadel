@@ -282,7 +282,7 @@ Three exception types:
 Typical local workflow:
 
 ```bash
-cd /storage/raid/home/getty/dev/perl/p5-www-zitadel
+cd p5-www-zitadel
 cpanm --installdeps .
 prove -lr t
 ```
@@ -300,7 +300,7 @@ prove -lv t/90-live-zitadel.t
 Project-local ZITADEL skills:
 
 - `.claude/skills/zitadel-general/SKILL.md` (integration + maintenance workflow)
-- `.claude/skills/www-zitadel-perl/SKILL.md` (usage guide for Perl client)
+- `.claude/skills/www-zitadel-core/SKILL.md` (usage guide for the Perl client)
 
 ## Testing
 
@@ -345,7 +345,7 @@ export ZITADEL_K8S_TEST=1
 export ZITADEL_ISSUER='https://your-zitadel.example.com'
 
 # Optional:
-export ZITADEL_KUBECONFIG='/storage/raid/home/getty/avatar/.kube/config'
+export ZITADEL_KUBECONFIG="$HOME/.kube/config"
 export ZITADEL_K8S_NAMESPACE='default'
 export ZITADEL_K8S_CONTEXT='your-context'
 
@@ -357,7 +357,7 @@ prove -lv t/91-k8s-pod.t
 This repo includes a full deployment helper for your cluster setup:
 
 ```bash
-cd /storage/raid/home/getty/dev/perl/p5-www-zitadel
+cd p5-www-zitadel
 script/deploy-k8s-zitadel.sh
 ```
 
@@ -366,14 +366,14 @@ Included assets:
 - `k8s/zitadel/postgres.yaml` (simple `src.ci/srv/postgres:18` stack)
 - `k8s/zitadel/postgres-values.yaml` (legacy bitnami reference)
 - `k8s/zitadel/zitadel-values.yaml` (ZITADEL chart values)
-- `k8s/zitadel/gateway-cert.yaml` (certificate for `*.avatar.conflict.industries`)
+- `k8s/zitadel/gateway-cert.yaml` (certificate for `*.example.com`)
 - `k8s/zitadel/httproute.yaml` (Gateway API route for ZITADEL + Login UI)
 
 Useful overrides:
 
 ```bash
-KUBECONFIG_PATH=/storage/raid/home/getty/avatar/.kube/config \
-DOMAIN=zitadel.avatar.conflict.industries \
+KUBECONFIG_PATH="$HOME/.kube/config" \
+DOMAIN=zitadel.example.com \
 NAMESPACE=zitadel \
 ZITADEL_IMAGE_REPOSITORY=src.ci/srv/zitadel \
 ZITADEL_IMAGE_TAG=pg18-fix \

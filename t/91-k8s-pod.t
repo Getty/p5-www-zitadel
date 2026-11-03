@@ -13,7 +13,7 @@ BEGIN {
 my $issuer = $ENV{ZITADEL_ISSUER}
     or plan skip_all => 'Set ZITADEL_ISSUER for Kubernetes pod test';
 
-my $kubeconfig = $ENV{ZITADEL_KUBECONFIG} // '/storage/raid/home/getty/avatar/.kube/config';
+my $kubeconfig = $ENV{ZITADEL_KUBECONFIG} // "$ENV{HOME}/.kube/config";
 my $namespace  = $ENV{ZITADEL_K8S_NAMESPACE} // 'default';
 my $context    = $ENV{ZITADEL_K8S_CONTEXT};
 

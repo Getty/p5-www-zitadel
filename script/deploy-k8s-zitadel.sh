@@ -3,11 +3,11 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-KUBECONFIG_PATH="${KUBECONFIG_PATH:-/storage/raid/home/getty/avatar/.kube/config}"
+KUBECONFIG_PATH="${KUBECONFIG_PATH:-$HOME/.kube/config}"
 NAMESPACE="${NAMESPACE:-zitadel}"
 DB_RELEASE="${DB_RELEASE:-db}"
 ZITADEL_RELEASE="${ZITADEL_RELEASE:-my-zitadel}"
-DOMAIN="${DOMAIN:-zitadel.avatar.conflict.industries}"
+DOMAIN="${DOMAIN:-zitadel.example.com}"
 GATEWAY_NAME="${GATEWAY_NAME:-cilium-gateway}"
 GATEWAY_NAMESPACE="${GATEWAY_NAMESPACE:-kube-system}"
 ZITADEL_IMAGE_REPOSITORY="${ZITADEL_IMAGE_REPOSITORY:-ghcr.io/zitadel/zitadel}"
@@ -38,7 +38,7 @@ kubecfg -n "$NAMESPACE" rollout status deploy/zitadel-postgres --timeout=300s
 TMP_VALUES="$(mktemp)"
 trap 'rm -f "$TMP_VALUES"' EXIT
 sed \
-  -e "s/zitadel\.avatar\.conflict\.industries/${DOMAIN}/g" \
+  -e "s/zitadel\.example\.com/${DOMAIN}/g" \
   -e "s/my-zitadel/${ZITADEL_RELEASE}/g" \
   -e "s|__ZITADEL_IMAGE_REPOSITORY__|${ZITADEL_IMAGE_REPOSITORY}|g" \
   -e "s|__ZITADEL_IMAGE_TAG__|${ZITADEL_IMAGE_TAG}|g" \
@@ -54,7 +54,7 @@ TMP_ROUTE="$(mktemp)"
 trap 'rm -f "$TMP_VALUES" "$TMP_ROUTE"' EXIT
 sed \
   -e "s/my-zitadel/${ZITADEL_RELEASE}/g" \
-  -e "s/zitadel\.avatar\.conflict\.industries/${DOMAIN}/g" \
+  -e "s/zitadel\.example\.com/${DOMAIN}/g" \
   -e "s/name: cilium-gateway/name: ${GATEWAY_NAME}/g" \
   -e "s/namespace: kube-system/namespace: ${GATEWAY_NAMESPACE}/g" \
   "$ROOT_DIR/k8s/zitadel/httproute.yaml" > "$TMP_ROUTE"

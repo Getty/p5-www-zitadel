@@ -61,7 +61,7 @@ prove -lv t/10-integration.t
 ```bash
 ZITADEL_K8S_TEST=1 \
 ZITADEL_ISSUER='https://<issuer>' \
-ZITADEL_KUBECONFIG='/storage/raid/home/getty/avatar/.kube/config' \
+ZITADEL_KUBECONFIG="$HOME/.kube/config" \
 prove -lv t/91-k8s-pod.t
 ```
 

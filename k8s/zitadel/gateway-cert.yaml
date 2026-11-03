@@ -8,7 +8,7 @@ spec:
   issuerRef:
     kind: ClusterIssuer
     name: selfsigned-issuer
-  commonName: "*.avatar.conflict.industries"
+  commonName: "*.example.com"
   dnsNames:
-    - "*.avatar.conflict.industries"
-    - "avatar.conflict.industries"
+    - "*.example.com"
+    - "example.com"
