@@ -5,11 +5,6 @@ Revision history for WWW-Zitadel
       the domain `zitadel.example.com` and the kubeconfig `~/.kube/config`.
       `DOMAIN` and `KUBECONFIG_PATH` set your own, as does
       `ZITADEL_KUBECONFIG` for the pod test.
-    - A test holds the prerequisites of the cpanfile: every module the code
-      loads is a declared prerequisite, so a lost one fails the build and not
-      the first use on a machine where the module is not installed.
-    - The cpanfile lists its prerequisites alphabetically, runtime block and
-      test block alike.
     - Declare LWP::Protocol::https in the cpanfile: without it a fresh
       installation cannot reach an issuer on https://.
     - `verify_token` fetches the keys again only when a token names a key the
@@ -43,18 +38,15 @@ Revision history for WWW-Zitadel
     - Split WWW::Zitadel::Error into one package per file
       (Error/Validation.pm, Error/Network.pm, Error/API.pm); the base module
       still loads all three, so `use WWW::Zitadel::Error` is unchanged for
-      callers. Clears the dzil "provide map entries did not map to .pm files"
-      warning.
-    - WWW::Zitadel facade now shares a single LWP::UserAgent across the
-      lazy-built `oidc` and `management` sub-clients (connection pooling).
-      New `ua` attribute lets callers inject a customized agent; the README
-      promise that the facade "automatically shares one UA" is now true.
-    - Removed dead `use URI;` import from WWW::Zitadel::OIDC and the
-      corresponding unused `requires 'URI';` from cpanfile.
-    - Declared `MIME::Base64` in cpanfile (used by Management metadata
-      methods; core module, now explicitly required).
-    - New Management API v1 endpoints (28 methods), paths verified against the
-      official ZITADEL docs and the management/v2 proto definitions:
+      callers.
+    - The WWW::Zitadel facade shares one LWP::UserAgent across the lazily
+      built `oidc` and `management` clients, so they pool connections. The
+      `ua` attribute takes a customized agent.
+    - MIME::Base64, which the Management metadata methods use, is a declared
+      prerequisite.
+    - The Management client covers more of the Management API v1, with paths
+      checked against the official ZITADEL docs and the management/v2 proto
+      definitions:
       - User Grants lifecycle: `update_user_grant`, `deactivate_user_grant`,
         `reactivate_user_grant`, `delete_user_grant`
       - Typed identity providers (Add*Provider endpoints, `providerOptions`
@@ -74,21 +66,7 @@ Revision history for WWW-Zitadel
       - User lifecycle: `lock_user`, `unlock_user`,
         `resend_email_verification`; `reactivate_org` (mirror of
         `deactivate_org`)
-    - Test coverage expanded from 228 to 384 tests:
-      - `create_project` path/payload/camelCase-option mapping + validation
-      - `create_human_user` optional profile/email/phone/password fields
-      - `update_user` display_name/nick_name mapping
-      - `create_project`/`update_project` camelCase options
-      - `WWW::Zitadel::Error` added to `t/00-load.t`
-      - Facade UA-sharing behavior (`ua` shared with oidc + management;
-        explicit `ua` respected)
-      - All 28 new Management methods: paths, snake_case->camelCase mappings,
-        base64 encodings, `providerOptions` nesting, required-arg validation
-    - Packaging:
-      - Added a committed `LICENSE` file (Perl_5), as expected by the
-        `[@Author::GETTY]` LicenseFile check; the repository now reports its
-        license
-      - `dist.ini`: added `copyright_year` for `[@Author::GETTY]`
+    - A committed `LICENSE` file states the license (Perl_5).
 
 0.001     2026-03-14 05:01:20Z
     - Bug fixes:
