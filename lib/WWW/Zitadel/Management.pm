@@ -986,19 +986,35 @@ connections across both OIDC and Management clients:
 
 =method list_users
 
+Searches the users of the organization. Takes C<offset> (default 0), C<limit> (default 100), C<asc> (default true) and C<queries>, an arrayref of ZITADEL search queries.
+
 =method get_user
+
+Returns one user. Takes the C<user_id>.
 
 =method create_human_user
 
+Creates a human user and returns the API answer. Takes C<user_name>, C<first_name>, C<last_name> and C<email> as required arguments, plus the optional C<display_name>, C<nick_name>, C<preferred_language>, C<email_verified>, C<phone>, C<phone_verified> and C<password>.
+
 =method update_user
+
+Updates the profile of a user. Takes the C<user_id> and any of C<first_name>, C<last_name>, C<display_name> and C<nick_name>.
 
 =method deactivate_user
 
+Deactivates a user. Takes the C<user_id>.
+
 =method reactivate_user
+
+Reactivates a deactivated user. Takes the C<user_id>.
 
 =method lock_user
 
+Locks a user so that the user cannot log in. Takes the C<user_id>.
+
 =method unlock_user
+
+Unlocks a locked user. Takes the C<user_id>.
 
 =method delete_user
 
@@ -1009,9 +1025,15 @@ user cannot log in but is not removed).
 
 =method create_service_user
 
+Creates a machine user. Takes C<user_name> and C<name> as required arguments and an optional C<description>.
+
 =method list_service_users
 
+Searches the machine users of the organization. Takes C<offset>, C<limit>, C<asc> and further C<queries>, which are added to the machine-type filter.
+
 =method get_service_user
+
+Returns one machine user. Takes the C<user_id>.
 
 =method delete_service_user
 
@@ -1020,7 +1042,11 @@ and C<name>. C<list_service_users> automatically filters to machine-type users.
 
 =method add_machine_key
 
+Adds a key to a machine user. Takes the C<user_id> and the optional C<type> and C<expiration_date>.
+
 =method list_machine_keys
+
+Lists the keys of a machine user. Takes the C<user_id> and the optional C<offset> and C<limit>.
 
 =method remove_machine_key
 
@@ -1029,7 +1055,11 @@ an optional C<type> (default C<KEY_TYPE_JSON>) and C<expiration_date>.
 
 =method set_password
 
+Sets the password of a user. Takes the C<user_id> and the C<password>, plus the optional C<change_required> to force a change at the next login.
+
 =method request_password_reset
+
+Asks ZITADEL to send the password reset notification to a user. Takes the C<user_id>.
 
 =method resend_email_verification
 
@@ -1039,7 +1069,11 @@ notification for a user.
 
 =method set_user_metadata
 
+Stores a metadata value for a user under a key. Takes the C<user_id>, the C<key> and the C<value>.
+
 =method get_user_metadata
+
+Returns the metadata entry of a user for one key. Takes the C<user_id> and the C<key>.
 
 =method list_user_metadata
 
@@ -1048,11 +1082,19 @@ by the ZITADEL API. C<set_user_metadata($user_id, $key, $value)>.
 
 =method list_projects
 
+Searches the projects of the organization. Takes C<offset>, C<limit> and C<queries>.
+
 =method get_project
+
+Returns one project. Takes the C<project_id>.
 
 =method create_project
 
+Creates a project. Takes C<name> as required argument and the optional C<project_role_assertion>, C<project_role_check>, C<has_project_check> and C<private_labeling_setting>.
+
 =method update_project
+
+Updates a project. Takes the C<project_id> and C<name>, plus the same optional arguments as C<create_project>.
 
 =method delete_project
 
@@ -1060,17 +1102,31 @@ Project CRUD operations. C<create_project> requires C<name>.
 
 =method list_apps
 
+Searches the applications of a project. Takes the C<project_id> and the optional C<offset>, C<limit> and C<queries>.
+
 =method get_app
+
+Returns one application of a project. Takes the C<project_id> and the C<app_id>.
 
 =method create_oidc_app
 
+Creates an OIDC application in a project. Takes the C<project_id>, then C<name> and C<redirect_uris> as required arguments and the optional arguments listed below.
+
 =method update_oidc_app
+
+Updates the OIDC configuration of an application. Takes the C<project_id>, the C<app_id> and the arguments listed below.
 
 =method create_saml_app
 
+Creates a SAML application in a project. Takes the C<project_id>, C<name> and one of C<metadata_xml> or C<metadata_url>.
+
 =method update_saml_app
 
+Updates the SAML configuration of an application. Takes the C<project_id>, the C<app_id> and one of C<metadata_xml> or C<metadata_url>.
+
 =method create_api_app
+
+Creates an API application in a project. Takes the C<project_id> and C<name>, plus the optional C<auth_method>.
 
 =method delete_app
 
@@ -1096,23 +1152,43 @@ Returns the current organization of the authenticated user.
 
 =method create_org
 
+Creates an organization. Takes C<name>.
+
 =method list_orgs
+
+Searches the organizations. Takes C<offset>, C<limit> and C<queries>.
 
 =method update_org
 
+Renames the current organization. Takes C<name>.
+
 =method deactivate_org
+
+Deactivates the current organization. Takes no arguments.
 
 =method reactivate_org
 
+Reactivates the current organization. Takes no arguments.
+
 =method add_org_domain
+
+Adds a domain to the current organization. Takes the domain name.
 
 =method generate_org_domain_validation
 
+Requests the validation challenge for a domain of the current organization. Takes the domain name and C<type>.
+
 =method validate_org_domain
+
+Checks the published challenge and verifies a domain. Takes the domain name.
 
 =method set_primary_org_domain
 
+Makes a verified domain the primary domain of the current organization. Takes the domain name.
+
 =method list_org_domains
+
+Searches the domains of the current organization. Takes C<offset>, C<limit> and C<queries>.
 
 =method remove_org_domain
 
@@ -1130,9 +1206,15 @@ C<list_org_domains> accepts C<offset>, C<limit>, and C<queries>.
 
 =method add_project_role
 
+Adds a role to a project. Takes the C<project_id>, the C<role_key> and the optional C<display_name> (default the role key) and C<group>.
+
 =method list_project_roles
 
+Searches the roles of a project. Takes the C<project_id> and the optional C<offset>, C<limit> and C<queries>.
+
 =method update_project_role
+
+Changes the display name and group of a project role. Takes the C<project_id>, the C<role_key> and C<display_name>, plus the optional C<group>.
 
 =method remove_project_role
 
@@ -1143,13 +1225,23 @@ accepts C<group>. C<remove_project_role> deletes a role by key.
 
 =method create_user_grant
 
+Grants roles of a project to a user. Takes C<user_id>, C<project_id> and C<role_keys>.
+
 =method list_user_grants
+
+Searches the user grants of the organization. Takes C<offset>, C<limit> and C<queries>.
 
 =method update_user_grant
 
+Replaces the roles of a user grant. Takes the C<user_id>, the C<grant_id> and C<role_keys>.
+
 =method deactivate_user_grant
 
+Deactivates a user grant. Takes the C<user_id> and the C<grant_id>.
+
 =method reactivate_user_grant
+
+Reactivates a user grant. Takes the C<user_id> and the C<grant_id>.
 
 =method delete_user_grant
 
@@ -1162,33 +1254,63 @@ it. All take C<user_id> and C<grant_id> positionally.
 
 =method list_idps
 
+Searches the identity providers of the organization. Takes C<offset>, C<limit> and C<queries>.
+
 =method get_idp
+
+Returns one identity provider. Takes the C<idp_id>.
 
 =method create_oidc_idp
 
+Creates a generic OIDC identity provider. Takes C<name>, C<client_id>, C<client_secret> and C<issuer>, plus the optional arguments listed below.
+
 =method create_jwt_idp
+
+Creates a JWT identity provider. Takes C<name>, C<issuer>, C<jwt_endpoint>, C<keys_endpoint> and C<header_name>, plus the optional C<audience> and C<provider_options>.
 
 =method create_google_idp
 
+Creates a Google identity provider. Takes C<client_id> and C<client_secret>, plus the optional C<name>, C<scopes> and C<provider_options>.
+
 =method create_azuread_idp
+
+Creates an Azure AD identity provider. Takes C<name>, C<client_id> and C<client_secret>, plus the tenant arguments and options listed below.
 
 =method create_github_idp
 
+Creates a GitHub identity provider. Takes C<client_id> and C<client_secret>, plus the optional C<name>, C<scopes> and C<provider_options>.
+
 =method create_github_enterprise_idp
+
+Creates a GitHub Enterprise identity provider. Takes C<name>, C<client_id>, C<client_secret> and the three endpoints C<authorization_endpoint>, C<token_endpoint> and C<user_endpoint>.
 
 =method create_gitlab_idp
 
+Creates a GitLab identity provider. Takes C<client_id> and C<client_secret>, plus the optional C<name>, C<scopes> and C<provider_options>.
+
 =method create_gitlab_self_hosted_idp
+
+Creates an identity provider for a self-hosted GitLab. Takes C<issuer>, C<name>, C<client_id> and C<client_secret>, plus the optional C<scopes> and C<provider_options>.
 
 =method create_apple_idp
 
+Creates an Apple identity provider. Takes C<client_id>, C<team_id>, C<key_id> and C<private_key>, plus the optional C<name>, C<scopes> and C<provider_options>.
+
 =method create_ldap_idp
+
+Creates an LDAP identity provider. Takes the required arguments listed below and the optional C<start_tls>, C<timeout>, C<attributes>, C<root_ca> and C<provider_options>.
 
 =method update_idp
 
+Updates a generic OIDC identity provider. Takes the C<idp_id> and C<name>, plus the optional C<display_name_mapping>, C<username_mapping> and C<auto_register>.
+
 =method delete_idp
 
+Deletes an identity provider. Takes the C<idp_id>.
+
 =method activate_idp
+
+Activates an identity provider. Takes the C<idp_id>.
 
 =method deactivate_idp
 
