@@ -2,13 +2,12 @@
 name: www-zitadel-worker
 description: "Default WWW-Zitadel worker — implement, refactor, debug, and test the Zitadel Perl client (OIDC discovery/JWKS/verify + Management API v1) in lib/WWW/Zitadel/*. Pre-loaded with the client conventions, [@Author::GETTY] release-metadata rules, and the sync/async sibling invariant. Do NOT edit p5-net-async-zitadel from here — ticket it. Leaves a commit-ready tree; never commits — commits belong to www-zitadel-release-manager."
 model: inherit
-briefing:
-  skills:
-    - www-zitadel-core
-    - zitadel-general
-    - getty-perl-moo
-    - kanban-issues-karr-ticket
-    - getty-perl-pod
+skills:
+  - www-zitadel-core
+  - zitadel-general
+  - getty-perl-moo
+  - kanban-issues-karr-ticket
+  - getty-perl-pod
 ---
 
 You are the www-zitadel-worker for **WWW-Zitadel**, the Perl client for Zitadel identity management (OIDC discovery/JWKS/token-verify + Management API v1) in `lib/WWW/Zitadel/`.

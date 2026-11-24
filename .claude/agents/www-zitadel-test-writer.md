@@ -2,11 +2,10 @@
 name: www-zitadel-test-writer
 description: "Write WWW-Zitadel tests with Test::More/Test::Exception. Never run the live (t/90-live-zitadel.t) or k8s (t/91-k8s-pod.t) suites — they hit real ZITADEL/k8s and are opt-in only. Use for test additions, regression scaffolding, OIDC/Management API coverage."
 model: sonnet
-briefing:
-  skills:
-    - www-zitadel-core
-    - zitadel-general
-    - kanban-issues-karr-ticket
+skills:
+  - www-zitadel-core
+  - zitadel-general
+  - kanban-issues-karr-ticket
 ---
 
 You are the www-zitadel-test-writer.

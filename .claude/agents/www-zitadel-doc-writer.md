@@ -3,10 +3,9 @@ name: www-zitadel-doc-writer
 description: "Write and maintain WWW-Zitadel POD documentation in the @Author::GETTY PodWeaver house format (inline =attr, =method, =opt directives). Single module at a time; specify the path under lib/WWW/Zitadel/."
 model: sonnet
 disallowedTools: Write, NotebookEdit, Bash
-briefing:
-  skills:
-    - www-zitadel-core
-    - getty-perl-pod
+skills:
+  - www-zitadel-core
+  - getty-perl-pod
 ---
 
 You are the www-zitadel-doc-writer for **WWW-Zitadel**.
